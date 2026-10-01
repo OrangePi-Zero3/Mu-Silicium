@@ -1,0 +1,136 @@
+#include "DisplayDxe.h"
+
+#ifndef __PHY_H__
+#define __PHY_H__
+
+#define H618_HDMI_BASE              0x06000000
+#define H618_HDMI_PHY_BASE          (H618_HDMI_BASE + 0x00010000)
+
+#define HDMI_ID_REG                     0x0000
+
+#define HDMI_IH_MUTE_REG                0x01FF
+
+#define HDMI_TX_INVID0_REG              0x0200
+#define HDMI_TX_INVID0_MAP_RGB444_8BIT  0x01
+
+#define HDMI_TX_INSTUFFING_REG      0x0201
+
+#define HDMI_VP_PR_CD_REG           0x0801
+#define HDMI_VP_STUFF_REG           0x0802
+#define HDMI_VP_REMAP_REG           0x0803
+#define HDMI_VP_CONF_REG            0x0804
+
+#define HDMI_FC_INVIDCONF_REG       0x1000
+
+#define HDMI_FC_INHACTV0_REG        0x1001
+#define HDMI_FC_INHACTV1_REG        0x1002
+
+#define HDMI_FC_INHBLANK0_REG       0x1003
+#define HDMI_FC_INHBLANK1_REG       0x1004
+
+#define HDMI_FC_INVACTV0_REG        0x1005
+#define HDMI_FC_INVACTV1_REG        0x1006
+#define HDMI_FC_INVBLANK_REG        0x1007
+
+#define HDMI_FC_HSYNCINDELAY0_REG   0x1008
+#define HDMI_FC_HSYNCINDELAY1_REG   0x1009
+#define HDMI_FC_HSYNCINWIDTH0_REG   0x100A
+#define HDMI_FC_HSYNCINWIDTH1_REG   0x100B
+
+#define HDMI_FC_VSYNCINDELAY_REG    0x100C
+#define HDMI_FC_VSYNCINWIDTH_REG    0x100D
+
+#define HDMI_FC_CTRLDUR_REG         0x1011
+
+#define HDMI_FC_EXCTRLDUR_REG       0x1012
+#define HDMI_FC_EXCTRLSPAC_REG      0x1013
+
+#define HDMI_FC_CH0PREAM_REG        0x1014
+#define HDMI_FC_CH1PREAM_REG        0x1015
+#define HDMI_FC_CH2PREAM_REG        0x1016
+
+#define HDMI_FC_PRCONF_REG            0x10E0
+#define HDMI_FC_PRCONF_INCOMING_SHIFT 4
+
+#define HDMI_FC_GCP_REG             0x1018
+
+#define HDMI_FC_DBGFORCE_REG        0x1200
+#define HDMI_FC_DBGTMDS0_REG        0x1219
+#define HDMI_FC_DBGTMDS1_REG        0x121A
+#define HDMI_FC_DBGTMDS2_REG        0x121B
+
+#define HDMI_MC_CLKDIS_REG          0x4001
+#define HDMI_MC_CLKDIS_PIXELCLK     0x01
+#define HDMI_MC_CLKDIS_TMDSCLK      0x02
+
+#define HDMI_MC_SWRSTZ_REG          0x4002
+#define HDMI_MC_FLOWCTRL_REG        0x4004
+#define HDMI_MC_PHYRSTZ_REG         0x4005
+
+#define HDMI_PHY_CONF0_REG          0x3000
+#define HDMI_PHY_CONF0_TXPWRON_MASK 0x08
+#define HDMI_PHY_CONF0_PDDQ_MASK    0x10
+#define HDMI_PHY_CONF0_SVSRET_MASK  0x20
+#define HDMI_PHY_CONF0_ENHPDRXSENSE_MASK 0x04
+
+#define HDMI_PHY_STAT0_REG          0x3004
+#define HDMI_PHY_STAT0_TX_PHY_LOCK  0x01
+#define HDMI_PHY_STAT0_HPD          0x02
+
+#define HDMI_PHY_CFG_74250_CTL1   0x0000
+#define HDMI_PHY_CFG_74250_CTL2   0x0000
+#define HDMI_PHY_CFG_74250_CTL3   0xFFFF
+#define HDMI_PHY_CFG_74250_CTL4   0xC0D0D0D
+
+#define HDMI_PHY_I2CM_SLAVE_REG     0x3020
+#define HDMI_PHY_I2CM_ADDRESS_REG   0x3021
+#define HDMI_PHY_I2CM_DATAO_1_REG   0x3022
+#define HDMI_PHY_I2CM_DATAO_0_REG   0x3023
+#define HDMI_PHY_I2CM_OPERATION_REG 0x3026
+#define HDMI_PHY_I2CM_INT_REG       0x3027
+#define HDMI_PHY_I2CM_DIV_REG       0x3029
+#define HDMI_PHY_I2CM_SOFTRSTZ_REG  0x302A
+#define HDMI_JTAG_PHY_CONFIG_REG    0x3034
+#define HDMI_JTAG_PHY_CONFIG_I2C_JTAGZ 0x10
+
+#define HDMI_PHY_I2CM_OPERATION_WR  0x10
+#define HDMI_PHY_I2C_SLAVE_ADDR     0x69
+
+#define HDMI_IH_I2CMPHY_STAT0_REG   0x108
+#define HDMI_IH_I2CMPHY_STAT0_ERROR 0x01
+#define HDMI_IH_I2CMPHY_STAT0_DONE  0x02
+
+#define PHY_I2C_OPMODE_PLLCFG       0x06
+#define PHY_I2C_CKSYMTXCTRL         0x09
+#define PHY_I2C_VLEVCTRL            0x0E
+#define PHY_I2C_PLLCURRCTRL         0x10
+#define PHY_I2C_PLLGMPCTRL          0x15
+#define PHY_I2C_TXTERM              0x19
+
+#define PHY_REXT_CTRL_REG_OFFSET    0x0004
+
+#define PHY_REXT_CTRL_VALUE         0x80C00000
+
+struct H618_PHY_CONFIG {
+  UINT32  PixelClockKhz;
+  UINT16  OpModePllCfg;
+  UINT16  PllCurrCtrl;
+  UINT16  PllGmpCtrl;
+  UINT16  TxTerm;
+  UINT16  VlevCtrl;
+  UINT16  CkSymTxCtrl;
+};
+
+typedef struct H618_PHY_CONFIG H618_PHY_CONFIG;
+
+CONST H618_PHY_CONFIG *
+H618PhyGetConfig (
+  IN UINT32  PixelClockKhz
+  );
+
+EFI_STATUS
+H618HdmiPhyInit (
+  IN CONST DISPLAY_MODE  *Mode
+  );
+
+#endif // __PHY_H__

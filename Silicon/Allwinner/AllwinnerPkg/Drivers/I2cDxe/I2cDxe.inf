@@ -1,0 +1,28 @@
+[Defines]
+  INF_VERSION                   = 0x00010005
+  BASE_NAME                     = I2cDxe
+  FILE_GUID                     = 9a6b7ec2-fc2c-423a-877d-e61e0e26c4cc
+  MODULE_TYPE                   = DXE_DRIVER
+  VERSION_STRING                = 0.1
+  ENTRY_POINT                   = I2cDriverEntry
+
+[Sources]
+  I2cDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  AllwinnerPkg/AllwinnerPkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiBootServicesTableLib
+  IoLib
+  TimerLib
+  DebugLib
+
+[Protocols]
+  gI2cProtocolGuid          ## PRODUCES
+
+[Depex]
+  TRUE

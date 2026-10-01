@@ -1,0 +1,29 @@
+[Defines]
+  INF_VERSION                   = 0x00010005
+  BASE_NAME                     = PmicDxe
+  FILE_GUID                     = 71b4d3a8-2c95-4e60-9f13-5a8e6c027d41
+  MODULE_TYPE                   = DXE_DRIVER
+  VERSION_STRING                = 0.1
+  ENTRY_POINT                   = PmicDxeEntry
+
+[Sources]
+  PmicDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  AllwinnerPkg/AllwinnerPkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiBootServicesTableLib
+  IoLib
+  TimerLib
+  DebugLib
+
+[Protocols]
+  gAllwinnerPmicProtocolGuid          ## PRODUCES
+  gI2cProtocolGuid
+
+[Depex]
+  TRUE

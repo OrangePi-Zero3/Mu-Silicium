@@ -1,0 +1,19 @@
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ClockLib
+  FILE_GUID                      = 8D8F5A2D-AAD6-4E15-9AE8-BD00F7899FDA
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = ClockLib|DXE_DRIVER
+
+[Sources]
+  ClockLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  AllwinnerPkg/AllwinnerPkg.dec
+
+[LibraryClasses]
+  IoLib
+  TimerLib
+  DebugLib

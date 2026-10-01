@@ -1,0 +1,27 @@
+[Defines]
+  INF_VERSION                   = 0x00010005
+  BASE_NAME                     = UsbHostDxe
+  FILE_GUID                     = 3f7b9c21-58d4-4a17-8c6e-1d90ab4e7f33
+  MODULE_TYPE                   = DXE_DRIVER
+  VERSION_STRING                = 0.1
+  ENTRY_POINT                   = UsbHostDxeEntry
+
+[Sources]
+  UsbHostDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  AllwinnerPkg/AllwinnerPkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiBootServicesTableLib
+  IoLib
+  TimerLib
+  DebugLib
+  NonDiscoverableDeviceRegistrationLib
+  ClockLib
+
+[Depex]
+  TRUE

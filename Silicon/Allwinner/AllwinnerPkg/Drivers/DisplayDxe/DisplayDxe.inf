@@ -1,0 +1,45 @@
+[Defines]
+  INF_VERSION                   = 0x00010005
+  BASE_NAME                     = DisplayDxe
+  FILE_GUID                     = 6a2d1f0e-6b0a-4a3e-9e2a-0b6f5c3a10a1
+  MODULE_TYPE                   = DXE_DRIVER
+  VERSION_STRING                = 0.1
+  ENTRY_POINT                   = DisplayDxeEntry
+
+[Sources]
+  Clock.c
+  Gop.c
+  Phy.c
+  DisplayDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  AllwinnerPkg/AllwinnerPkg.dec
+  SiliciumPkg/SiliciumPkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiBootServicesTableLib
+  DxeServicesTableLib
+  IoLib
+  TimerLib
+  DebugLib
+  BaseMemoryLib
+  CacheMaintenanceLib
+  MemoryAllocationLib
+  UefiBootManagerLib
+  DevicePathLib
+  ClockLib
+
+[Protocols]
+  gEfiGraphicsOutputProtocolGuid   ## PRODUCES
+  gEfiDevicePathProtocolGuid       ## PRODUCES
+  gEfiSimpleTextOutProtocolGuid    ## CONSUMES
+  gEfiSimpleTextInProtocolGuid     ## CONSUMES
+
+[Guids]
+  gEfiEndOfDxeEventGroupGuid
+
+[Depex]
+  TRUE

@@ -1,0 +1,19 @@
+#ifndef __PMIC_DXE_H__
+#define __PMIC_DXE_H__
+
+#define AXP313_I2C_ADDR       0x36
+#define AXP313_CHIP_VERSION   0x03
+#define AXP313_OUTPUT_CTRL    0x10
+#define AXP313_DCDC1_CTRL     0x13   // DCDC2 = +1, DCDC3 = +2
+
+#define AXP313_VERSION_MASK   0xCF
+#define AXP313_VERSION_1530   0x48
+#define AXP313_VERSION_313A   0x4B
+#define AXP313_VERSION_313B   0x4C
+
+#define AXP313_SPLIT_MV       1200
+#define AXP313_SPLIT_CODE     71
+#define AXP313_DCDC12_MAX_MV  1540
+#define AXP313_DCDC3_MAX_MV   1840
+
+#endif // __PMIC_DXE_H__

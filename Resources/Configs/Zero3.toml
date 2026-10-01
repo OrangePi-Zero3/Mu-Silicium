@@ -1,0 +1,10 @@
+#
+# UEFI FD Configs
+#
+[uefi_fd]
+base = 0x4A000000
+size = 0xE8000
+
+[payload]
+requires_boot_shim = false
+type = "raw"
