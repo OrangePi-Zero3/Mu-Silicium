@@ -11,6 +11,7 @@
 
 [LibraryClasses]
   ClockLib|AllwinnerPkg/Library/ClockLib/ClockLib.inf
+  RamManagerLib|AllwinnerPkg/Library/RamManagerLib/RamManagerLib.inf
 
 [Components]
   #

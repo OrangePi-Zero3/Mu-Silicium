@@ -7,11 +7,12 @@ gMemoryDescriptor[] = {
 
   // DDR Regions
   {"BL31 Reserved",      0x40000000, 0x00080000, AddMem, MEM_RES, UNCACHEABLE, Reserv, UNCACHED_UNBUFFERED_XN},
-  {"RAM Partition",      0x40080000, 0x09F80000, AddMem, SYS_MEM, SYS_MEM_CAP, Conv,   WRITE_BACK},
   {"UEFI FD",            0x4A000000, 0x000E8000, AddMem, SYS_MEM, SYS_MEM_CAP, BsCode, WRITE_BACK},
   {"UEFI Stack",         0x4A0E8000, 0x00040000, AddMem, SYS_MEM, SYS_MEM_CAP, BsData, WRITE_BACK},
   {"DXE Heap",           0x4A128000, 0x03C00000, AddMem, SYS_MEM, SYS_MEM_CAP, Conv,   WRITE_BACK},
-  {"RAM Partition",      0x4DD28000, 0x522D8000, AddMem, SYS_MEM, SYS_MEM_CAP, Conv,   WRITE_BACK},
+
+  // SRAM
+  {"SRAM",               0x00020000, 0x00008000, AddMem, SYS_MEM, SYS_MEM_CAP, Conv,   WRITE_BACK},
 
   // Register Regions
   {"Display Engine",     0x01000000, 0x01400000, AddDev, MMAP_IO, UNCACHEABLE, MmIO,   DEVICE},
