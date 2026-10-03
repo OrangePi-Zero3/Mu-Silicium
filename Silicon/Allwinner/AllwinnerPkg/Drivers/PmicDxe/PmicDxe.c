@@ -110,6 +110,194 @@ PmicGetDcdcMilliVolt (
   return EFI_SUCCESS;
 }
 
+STATIC
+EFI_STATUS
+EFIAPI
+PmicSetDldo1MilliVolt (
+  IN ALLWINNER_PMIC_PROTOCOL  *This,
+  IN UINT32                    MilliVolt)
+{
+  EFI_STATUS  Status;
+  UINT8       VoltageCtrl;
+  UINT8       OutputCtrl;
+
+  if (MilliVolt < AXP313_DLDO1_MIN_MV || MilliVolt > AXP313_DLDO1_MAX_MV ||
+      ((MilliVolt - AXP313_DLDO1_MIN_MV) % AXP313_DLDO1_STEP_MV) != 0) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Status = mI2cProtocol->Read (AXP313_I2C_ADDR, AXP313_DLDO1_CTRL, &VoltageCtrl);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  VoltageCtrl = (UINT8)((VoltageCtrl & ~AXP313_DLDO1_VOLTAGE_MASK) |
+                        ((MilliVolt - AXP313_DLDO1_MIN_MV) / AXP313_DLDO1_STEP_MV));
+  Status = mI2cProtocol->Write (AXP313_I2C_ADDR, AXP313_DLDO1_CTRL, VoltageCtrl);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = mI2cProtocol->Read (AXP313_I2C_ADDR, AXP313_OUTPUT_CTRL, &OutputCtrl);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  if ((OutputCtrl & AXP313_DLDO1_ENABLE) != 0) {
+    return EFI_SUCCESS;
+  }
+
+  return mI2cProtocol->Write (AXP313_I2C_ADDR, AXP313_OUTPUT_CTRL,
+                              OutputCtrl | AXP313_DLDO1_ENABLE);
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+PmicGetDldo1MilliVolt (
+  IN  ALLWINNER_PMIC_PROTOCOL  *This,
+  OUT UINT32                   *MilliVolt)
+{
+  EFI_STATUS  Status;
+  UINT8       VoltageCtrl;
+
+  if (MilliVolt == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Status = mI2cProtocol->Read (AXP313_I2C_ADDR, AXP313_DLDO1_CTRL, &VoltageCtrl);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  *MilliVolt = AXP313_DLDO1_MIN_MV +
+               (VoltageCtrl & AXP313_DLDO1_VOLTAGE_MASK) * AXP313_DLDO1_STEP_MV;
+  return EFI_SUCCESS;
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+PmicSetDldo1Enabled (
+  IN ALLWINNER_PMIC_PROTOCOL  *This,
+  IN BOOLEAN                   Enabled)
+{
+  EFI_STATUS  Status;
+  UINT8       OutputCtrl;
+  UINT8       NewOutputCtrl;
+
+  Status = mI2cProtocol->Read (AXP313_I2C_ADDR, AXP313_OUTPUT_CTRL, &OutputCtrl);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  if (Enabled) {
+    NewOutputCtrl = OutputCtrl | AXP313_DLDO1_ENABLE;
+  } else {
+    NewOutputCtrl = OutputCtrl & (UINT8)~AXP313_DLDO1_ENABLE;
+  }
+
+  if (NewOutputCtrl == OutputCtrl) {
+    return EFI_SUCCESS;
+  }
+
+  return mI2cProtocol->Write (AXP313_I2C_ADDR, AXP313_OUTPUT_CTRL, NewOutputCtrl);
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+PmicSetAldo1MilliVolt (
+  IN ALLWINNER_PMIC_PROTOCOL  *This,
+  IN UINT32                    MilliVolt)
+{
+  EFI_STATUS  Status;
+  UINT8       VoltageCtrl;
+  UINT8       OutputCtrl;
+
+  if (MilliVolt < AXP313_ALDO1_MIN_MV || MilliVolt > AXP313_ALDO1_MAX_MV ||
+      ((MilliVolt - AXP313_ALDO1_MIN_MV) % AXP313_ALDO1_STEP_MV) != 0) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Status = mI2cProtocol->Read (AXP313_I2C_ADDR, AXP313_ALDO1_CTRL, &VoltageCtrl);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  VoltageCtrl = (UINT8)((VoltageCtrl & (UINT8)~AXP313_ALDO1_VOLTAGE_MASK) |
+                        ((MilliVolt - AXP313_ALDO1_MIN_MV) / AXP313_ALDO1_STEP_MV));
+  Status = mI2cProtocol->Write (AXP313_I2C_ADDR, AXP313_ALDO1_CTRL, VoltageCtrl);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = mI2cProtocol->Read (AXP313_I2C_ADDR, AXP313_OUTPUT_CTRL, &OutputCtrl);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  if ((OutputCtrl & AXP313_ALDO1_ENABLE) != 0) {
+    return EFI_SUCCESS;
+  }
+
+  return mI2cProtocol->Write (AXP313_I2C_ADDR, AXP313_OUTPUT_CTRL,
+                              OutputCtrl | AXP313_ALDO1_ENABLE);
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+PmicGetAldo1MilliVolt (
+  IN  ALLWINNER_PMIC_PROTOCOL  *This,
+  OUT UINT32                   *MilliVolt)
+{
+  EFI_STATUS  Status;
+  UINT8       VoltageCtrl;
+
+  if (MilliVolt == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Status = mI2cProtocol->Read (AXP313_I2C_ADDR, AXP313_ALDO1_CTRL, &VoltageCtrl);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  *MilliVolt = AXP313_ALDO1_MIN_MV +
+               (VoltageCtrl & AXP313_ALDO1_VOLTAGE_MASK) * AXP313_ALDO1_STEP_MV;
+  return EFI_SUCCESS;
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+PmicSetAldo1Enabled (
+  IN ALLWINNER_PMIC_PROTOCOL  *This,
+  IN BOOLEAN                   Enabled)
+{
+  EFI_STATUS  Status;
+  UINT8       OutputCtrl;
+  UINT8       NewOutputCtrl;
+
+  Status = mI2cProtocol->Read (AXP313_I2C_ADDR, AXP313_OUTPUT_CTRL, &OutputCtrl);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  if (Enabled) {
+    NewOutputCtrl = OutputCtrl | AXP313_ALDO1_ENABLE;
+  } else {
+    NewOutputCtrl = OutputCtrl & (UINT8)~AXP313_ALDO1_ENABLE;
+  }
+
+  if (NewOutputCtrl == OutputCtrl) {
+    return EFI_SUCCESS;
+  }
+
+  return mI2cProtocol->Write (AXP313_I2C_ADDR, AXP313_OUTPUT_CTRL, NewOutputCtrl);
+}
+
 EFI_STATUS
 EFIAPI
 PmicDxeEntry (
@@ -144,14 +332,32 @@ PmicDxeEntry (
 
   Status = PmicGetDcdcMilliVolt (&mPmicProtocol, 2, &MilliVolt);
   DEBUG ((
-    DEBUG_INFO,
+    EFI_D_WARN,
     "PmicDxe: AXP313A found (id 0x%02x), vdd-cpu currently %u mV\n",
     ChipId,
     EFI_ERROR (Status) ? 0 : MilliVolt
     ));
 
+  PmicSetDldo1Enabled(&mPmicProtocol, FALSE);
+  PmicSetDldo1MilliVolt(&mPmicProtocol, 3300);
+  PmicSetDldo1Enabled(&mPmicProtocol, TRUE);
+  Status = PmicGetDldo1MilliVolt(&mPmicProtocol, &MilliVolt);
+  DEBUG ((EFI_D_WARN, "PmicDxe: vdd-3v3 currently %u mV\n", EFI_ERROR (Status) ? 0 : MilliVolt));
+
+  //PmicSetAldo1Enabled(&mPmicProtocol, FALSE);
+  //PmicSetAldo1MilliVolt(&mPmicProtocol, 1800);
+  //PmicSetAldo1Enabled(&mPmicProtocol, TRUE);
+  Status = PmicGetAldo1MilliVolt(&mPmicProtocol, &MilliVolt);
+  DEBUG ((EFI_D_WARN, "PmicDxe: vdd-1v8 currently %u mV\n", EFI_ERROR (Status) ? 0 : MilliVolt));
+
   mPmicProtocol.SetDcdcMilliVolt = PmicSetDcdcMilliVolt;
   mPmicProtocol.GetDcdcMilliVolt = PmicGetDcdcMilliVolt;
+  mPmicProtocol.SetDldo1MilliVolt = PmicSetDldo1MilliVolt;
+  mPmicProtocol.GetDldo1MilliVolt = PmicGetDldo1MilliVolt;
+  mPmicProtocol.SetDldo1Enabled = PmicSetDldo1Enabled;
+  mPmicProtocol.SetAldo1MilliVolt = PmicSetAldo1MilliVolt;
+  mPmicProtocol.GetAldo1MilliVolt = PmicGetAldo1MilliVolt;
+  mPmicProtocol.SetAldo1Enabled = PmicSetAldo1Enabled;
 
   Handle = NULL;
   return gBS->InstallMultipleProtocolInterfaces (
