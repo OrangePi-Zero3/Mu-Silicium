@@ -102,6 +102,7 @@ READ_LOCK_STATUS   = TRUE
   #}
 
   !include AllwinnerPkg/Extra.fdf.inc
+  !include NetworkPkg/Network.fdf.inc
 
 [FV.FVMAIN_COMPACT]
 FvAlignment        = 8
