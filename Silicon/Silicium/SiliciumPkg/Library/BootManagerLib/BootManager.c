@@ -23,6 +23,35 @@
 
 #include "BootManager.h"
 
+#define DP_NODE_LEN(Type)  { (UINT8)sizeof (Type), (UINT8)(sizeof (Type) >> 8) }
+
+#pragma pack (1)
+typedef struct {
+  USB_CLASS_DEVICE_PATH       Keyboard;
+  EFI_DEVICE_PATH_PROTOCOL    End;
+} PLATFORM_USB_KEYBOARD;
+#pragma pack ()
+
+STATIC PLATFORM_USB_KEYBOARD  mUsbKeyboard = {
+  {
+    {
+      MESSAGING_DEVICE_PATH,
+      MSG_USB_CLASS_DP,
+      DP_NODE_LEN (USB_CLASS_DEVICE_PATH)
+    },
+    0xFFFF, // Any vendor
+    0xFFFF, // Any product
+    3,      // HID
+    1,      // Boot interface
+    1       // Keyboard
+  },
+  {
+    END_DEVICE_PATH_TYPE,
+    END_ENTIRE_DEVICE_PATH_SUBTYPE,
+    DP_NODE_LEN (EFI_DEVICE_PATH_PROTOCOL)
+  }
+};
+
 //
 // Global Variables
 //
@@ -49,6 +78,7 @@ PlatformBootManagerBeforeConsole ()
 
   // Register Console Variables
   EfiBootManagerUpdateConsoleVariable (ConIn,  (EFI_DEVICE_PATH_PROTOCOL *)&KeypadDevicePath,  NULL);
+  EfiBootManagerUpdateConsoleVariable (ConIn,  (EFI_DEVICE_PATH_PROTOCOL *)&mUsbKeyboard,      NULL);
   EfiBootManagerUpdateConsoleVariable (ConOut, (EFI_DEVICE_PATH_PROTOCOL *)&DisplayDevicePath, NULL);
   EfiBootManagerUpdateConsoleVariable (ErrOut, (EFI_DEVICE_PATH_PROTOCOL *)&DisplayDevicePath, NULL);
 
