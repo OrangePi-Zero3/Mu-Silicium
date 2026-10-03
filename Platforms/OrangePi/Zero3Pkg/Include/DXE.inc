@@ -19,6 +19,7 @@
   INF MdeModulePkg/Universal/Console/ConSplitterDxe/ConSplitterDxe.inf
   INF MdeModulePkg/Universal/Console/GraphicsConsoleDxe/GraphicsConsoleDxe.inf
   INF MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
+  INF AllwinnerPkg/Drivers/RngDxe/RngDxe.inf
   INF ArmPkg/Drivers/ArmGicDxe/ArmGicDxe.inf
   INF ArmPkg/Drivers/TimerDxe/TimerDxe.inf
 
@@ -26,6 +27,7 @@
   INF AllwinnerPkg/Drivers/UsbHostDxe/UsbHostDxe.inf
   INF AllwinnerPkg/Drivers/I2cDxe/I2cDxe.inf
   INF AllwinnerPkg/Drivers/PmicDxe/PmicDxe.inf
+  INF AllwinnerPkg/Drivers/EmacDxe/EmacDxe.inf
 
   INF MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
   INF MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
