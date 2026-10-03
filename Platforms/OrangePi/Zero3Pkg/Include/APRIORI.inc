@@ -13,6 +13,7 @@ APRIORI DXE {
   INF AllwinnerPkg/Drivers/UsbHostDxe/UsbHostDxe.inf
   INF AllwinnerPkg/Drivers/I2cDxe/I2cDxe.inf
   INF AllwinnerPkg/Drivers/PmicDxe/PmicDxe.inf
+  INF AllwinnerPkg/Drivers/EmacDxe/EmacDxe.inf
 
   INF MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
   INF MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
@@ -36,6 +37,18 @@ APRIORI DXE {
   INF MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
   INF MdeModulePkg/Universal/CapsuleRuntimeDxe/CapsuleRuntimeDxe.inf
   INF MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
+
+  INF AllwinnerPkg/Drivers/RngDxe/RngDxe.inf
+  INF NetworkPkg/DpcDxe/DpcDxe.inf
+  INF NetworkPkg/MnpDxe/MnpDxe.inf
+  INF NetworkPkg/ArpDxe/ArpDxe.inf
+  INF NetworkPkg/Dhcp4Dxe/Dhcp4Dxe.inf
+  INF NetworkPkg/Ip4Dxe/Ip4Dxe.inf
+  INF NetworkPkg/Udp4Dxe/Udp4Dxe.inf
+  INF NetworkPkg/Mtftp4Dxe/Mtftp4Dxe.inf
+  INF NetworkPkg/TcpDxe/TcpDxe.inf
+  INF NetworkPkg/UefiPxeBcDxe/UefiPxeBcDxe.inf
+
   INF MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe.inf
   INF MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
 
