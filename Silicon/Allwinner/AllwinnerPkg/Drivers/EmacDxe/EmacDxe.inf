@@ -1,0 +1,39 @@
+[Defines]
+  INF_VERSION                   = 0x00010005
+  BASE_NAME                     = EmacDxe
+  FILE_GUID                     = 16c3b445-7ed1-4c8f-9b2f-9c8e42428d4a
+  MODULE_TYPE                   = DXE_DRIVER
+  VERSION_STRING                = 0.1
+  ENTRY_POINT                   = EmacDxeEntry
+
+[Sources]
+  EmacDxe.c
+  EmacDxe.h
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  AllwinnerPkg/AllwinnerPkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiBootServicesTableLib
+  IoLib
+  TimerLib
+  DebugLib
+  BaseMemoryLib
+  MemoryAllocationLib
+  CacheMaintenanceLib
+  DevicePathLib
+  ClockLib
+
+[Protocols]
+  gEfiSimpleNetworkProtocolGuid       ## PRODUCES
+  gEfiDevicePathProtocolGuid          ## PRODUCES
+  gGpioProtocolGuid                   ## CONSUMES
+
+[Guids]
+  gEfiEventBeforeExitBootServicesGuid ## CONSUMES ## Event
+
+[Depex]
+  gGpioProtocolGuid
