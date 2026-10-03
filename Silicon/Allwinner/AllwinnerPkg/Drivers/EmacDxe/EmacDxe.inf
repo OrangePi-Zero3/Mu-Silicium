@@ -32,5 +32,8 @@
   gEfiDevicePathProtocolGuid          ## PRODUCES
   gGpioProtocolGuid                   ## CONSUMES
 
+[Guids]
+  gEfiEventBeforeExitBootServicesGuid ## CONSUMES ## Event
+
 [Depex]
   gGpioProtocolGuid

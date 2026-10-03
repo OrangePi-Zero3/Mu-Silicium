@@ -1,3 +1,5 @@
+#include <Uefi.h>
+
 #include <Library/BaseMemoryLib.h>
 #include <Library/CacheMaintenanceLib.h>
 #include <Library/ClockLib.h>
@@ -8,6 +10,7 @@
 #include <Library/TimerLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiDriverEntryPoint.h>
+#include <Guid/EventGroup.h>
 #include <Protocol/DevicePath.h>
 #include <Protocol/Gpio.h>
 
@@ -407,6 +410,85 @@ EmacCloseWaitForPacket (
   }
 }
 
+STATIC VOID
+EmacStopDma (
+  VOID
+  )
+{
+  MmioWrite32 (EMAC_BASE + EMAC_RX_CTL0,
+               MmioRead32 (EMAC_BASE + EMAC_RX_CTL0) & ~EMAC_RX_CTL0_RX_EN);
+  MmioWrite32 (EMAC_BASE + EMAC_TX_CTL0,
+               MmioRead32 (EMAC_BASE + EMAC_TX_CTL0) & ~EMAC_TX_CTL0_TX_EN);
+  MmioWrite32 (EMAC_BASE + EMAC_TX_CTL1,
+               MmioRead32 (EMAC_BASE + EMAC_TX_CTL1) & ~EMAC_TX_CTL1_TX_DMA_EN);
+  MmioWrite32 (EMAC_BASE + EMAC_RX_CTL1,
+               MmioRead32 (EMAC_BASE + EMAC_RX_CTL1) & ~EMAC_RX_CTL1_RX_DMA_EN);
+}
+
+STATIC VOID *
+EmacFreeDmaPages (
+  IN VOID   *Buffer,
+  IN UINTN  NumberOfPages
+  )
+{
+  EFI_STATUS  Status;
+
+  if (Buffer == NULL) {
+    return NULL;
+  }
+
+  Status = gBS->FreePages ((EFI_PHYSICAL_ADDRESS)(UINTN)Buffer, NumberOfPages);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "EmacDxe: failed to release reserved DMA memory: %r\n", Status));
+    return Buffer;
+  }
+
+  return NULL;
+}
+
+STATIC VOID
+EFIAPI
+EmacExitBootServicesNotify (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  EMAC_PRIVATE  *Private;
+
+  Private = Context;
+  EmacStopDma ();
+  Private->Mode.State = EfiSimpleNetworkStopped;
+
+  if (Private->PollEvent != NULL) {
+    gBS->CloseEvent (Private->PollEvent);
+    Private->PollEvent = NULL;
+  }
+
+  EmacCloseWaitForPacket (Private);
+
+  Private->TxDescriptors = EmacFreeDmaPages (
+                             Private->TxDescriptors,
+                             EFI_SIZE_TO_PAGES (sizeof (EMAC_DESCRIPTOR) * EMAC_RING_SIZE)
+                             );
+  Private->RxDescriptors = EmacFreeDmaPages (
+                             Private->RxDescriptors,
+                             EFI_SIZE_TO_PAGES (sizeof (EMAC_DESCRIPTOR) * EMAC_RING_SIZE)
+                             );
+  Private->TxBuffer = EmacFreeDmaPages (
+                        Private->TxBuffer,
+                        EFI_SIZE_TO_PAGES (EMAC_PACKET_SIZE * EMAC_RING_SIZE)
+                        );
+  Private->RxBuffer = EmacFreeDmaPages (
+                        Private->RxBuffer,
+                        EFI_SIZE_TO_PAGES (EMAC_PACKET_SIZE * EMAC_RING_SIZE)
+                        );
+
+  if (Private->ExitBootServicesEvent != NULL) {
+    gBS->CloseEvent (Private->ExitBootServicesEvent);
+    Private->ExitBootServicesEvent = NULL;
+  }
+}
+
 STATIC EFI_STATUS
 EFIAPI
 EmacStart (
@@ -440,10 +522,7 @@ EmacStop (
     return EFI_NOT_STARTED;
   }
 
-  MmioWrite32 (EMAC_BASE + EMAC_RX_CTL0, MmioRead32 (EMAC_BASE + EMAC_RX_CTL0) & ~EMAC_RX_CTL0_RX_EN);
-  MmioWrite32 (EMAC_BASE + EMAC_TX_CTL0, MmioRead32 (EMAC_BASE + EMAC_TX_CTL0) & ~EMAC_TX_CTL0_TX_EN);
-  MmioWrite32 (EMAC_BASE + EMAC_TX_CTL1, MmioRead32 (EMAC_BASE + EMAC_TX_CTL1) & ~EMAC_TX_CTL1_TX_DMA_EN);
-  MmioWrite32 (EMAC_BASE + EMAC_RX_CTL1, MmioRead32 (EMAC_BASE + EMAC_RX_CTL1) & ~EMAC_RX_CTL1_RX_DMA_EN);
+  EmacStopDma ();
 
   EmacCloseWaitForPacket (Private);
   Private->Mode.State = EfiSimpleNetworkStopped;
@@ -563,10 +642,7 @@ EmacReset (
   }
 
   if (Private->Mode.State == EfiSimpleNetworkInitialized) {
-    MmioWrite32 (EMAC_BASE + EMAC_RX_CTL0, MmioRead32 (EMAC_BASE + EMAC_RX_CTL0) & ~EMAC_RX_CTL0_RX_EN);
-    MmioWrite32 (EMAC_BASE + EMAC_TX_CTL0, MmioRead32 (EMAC_BASE + EMAC_TX_CTL0) & ~EMAC_TX_CTL0_TX_EN);
-    MmioWrite32 (EMAC_BASE + EMAC_TX_CTL1, MmioRead32 (EMAC_BASE + EMAC_TX_CTL1) & ~EMAC_TX_CTL1_TX_DMA_EN);
-    MmioWrite32 (EMAC_BASE + EMAC_RX_CTL1, MmioRead32 (EMAC_BASE + EMAC_RX_CTL1) & ~EMAC_RX_CTL1_RX_DMA_EN);
+    EmacStopDma ();
 
     Private->Mode.State = EfiSimpleNetworkStarted;
   }
@@ -589,10 +665,7 @@ EmacShutdown (
     return EFI_NOT_STARTED;
   }
 
-  MmioWrite32 (EMAC_BASE + EMAC_RX_CTL0, MmioRead32 (EMAC_BASE + EMAC_RX_CTL0) & ~EMAC_RX_CTL0_RX_EN);
-  MmioWrite32 (EMAC_BASE + EMAC_TX_CTL0, MmioRead32 (EMAC_BASE + EMAC_TX_CTL0) & ~EMAC_TX_CTL0_TX_EN);
-  MmioWrite32 (EMAC_BASE + EMAC_TX_CTL1, MmioRead32 (EMAC_BASE + EMAC_TX_CTL1) & ~EMAC_TX_CTL1_TX_DMA_EN);
-  MmioWrite32 (EMAC_BASE + EMAC_RX_CTL1, MmioRead32 (EMAC_BASE + EMAC_RX_CTL1) & ~EMAC_RX_CTL1_RX_DMA_EN);
+  EmacStopDma ();
 
   EmacCloseWaitForPacket (Private);
   Private->Mode.State = EfiSimpleNetworkStarted;
@@ -880,6 +953,9 @@ EmacDestroy (
   if (mEmac->PollEvent != NULL)
     gBS->CloseEvent (mEmac->PollEvent);
 
+  if (mEmac->ExitBootServicesEvent != NULL)
+    gBS->CloseEvent (mEmac->ExitBootServicesEvent);
+
   EmacCloseWaitForPacket (mEmac);
 
   if (mEmac->DevicePath != NULL)
@@ -933,10 +1009,10 @@ EmacDxeEntry (
   Private->FullDuplex = TRUE;
   mEmac = Private;
 
-  Private->TxDescriptors = AllocateAlignedPages (EFI_SIZE_TO_PAGES (sizeof (EMAC_DESCRIPTOR) * EMAC_RING_SIZE), EFI_PAGE_SIZE);
-  Private->RxDescriptors = AllocateAlignedPages (EFI_SIZE_TO_PAGES (sizeof (EMAC_DESCRIPTOR) * EMAC_RING_SIZE), EFI_PAGE_SIZE);
-  Private->TxBuffer = AllocateAlignedPages (EFI_SIZE_TO_PAGES (EMAC_PACKET_SIZE * EMAC_RING_SIZE), EFI_PAGE_SIZE);
-  Private->RxBuffer = AllocateAlignedPages (EFI_SIZE_TO_PAGES (EMAC_PACKET_SIZE * EMAC_RING_SIZE), EFI_PAGE_SIZE);
+  Private->TxDescriptors = AllocateAlignedReservedPages (EFI_SIZE_TO_PAGES (sizeof (EMAC_DESCRIPTOR) * EMAC_RING_SIZE), EFI_PAGE_SIZE);
+  Private->RxDescriptors = AllocateAlignedReservedPages (EFI_SIZE_TO_PAGES (sizeof (EMAC_DESCRIPTOR) * EMAC_RING_SIZE), EFI_PAGE_SIZE);
+  Private->TxBuffer = AllocateAlignedReservedPages (EFI_SIZE_TO_PAGES (EMAC_PACKET_SIZE * EMAC_RING_SIZE), EFI_PAGE_SIZE);
+  Private->RxBuffer = AllocateAlignedReservedPages (EFI_SIZE_TO_PAGES (EMAC_PACKET_SIZE * EMAC_RING_SIZE), EFI_PAGE_SIZE);
 
   if (!Private->TxDescriptors || !Private->RxDescriptors || !Private->TxBuffer || !Private->RxBuffer) {
     DEBUG ((EFI_D_ERROR, "EmacDxe: DMA buffer allocation failed\n"));
@@ -1022,6 +1098,13 @@ EmacDxeEntry (
   DevicePath->Mac.IfType = Private->Mode.IfType;
 
   SetDevicePathEndNode (&DevicePath->End);
+
+  Status = gBS->CreateEventEx (EVT_NOTIFY_SIGNAL, TPL_CALLBACK, EmacExitBootServicesNotify, Private, &gEfiEventBeforeExitBootServicesGuid, &Private->ExitBootServicesEvent);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "EmacDxe: failed to create ExitBootServices event: %r\n", Status));
+    EmacDestroy ();
+    return Status;
+  }
 
   Status = gBS->CreateEvent (EVT_TIMER | EVT_NOTIFY_SIGNAL, TPL_CALLBACK, EmacPoll, Private, &Private->PollEvent);
   if (EFI_ERROR (Status)) {

@@ -136,6 +136,7 @@ typedef struct {
   EFI_SIMPLE_NETWORK_MODE      Mode;
   EFI_HANDLE                   Handle;
   EFI_EVENT                    PollEvent;
+  EFI_EVENT                    ExitBootServicesEvent;
   EMAC_DESCRIPTOR              *TxDescriptors;
   EMAC_DESCRIPTOR              *RxDescriptors;
   UINT8                        *TxBuffer;
