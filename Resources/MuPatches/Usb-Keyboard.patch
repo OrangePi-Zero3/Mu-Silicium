@@ -1,0 +1,104 @@
+diff --git a/MdeModulePkg/Bus/Usb/UsbKbDxe/EfiKey.c b/MdeModulePkg/Bus/Usb/UsbKbDxe/EfiKey.c
+index bcda0724ee..9fe2128b66 100644
+--- a/MdeModulePkg/Bus/Usb/UsbKbDxe/EfiKey.c
++++ b/MdeModulePkg/Bus/Usb/UsbKbDxe/EfiKey.c
+@@ -169,6 +169,17 @@ USBKeyboardDriverBindingStart (
+   UsbKeyboardDevice = AllocateZeroPool (sizeof (USB_KB_DEV));
+   ASSERT (UsbKeyboardDevice != NULL);
+ 
++  Status = gBS->CreateEvent (
++                  EVT_NOTIFY_SIGNAL,
++                  TPL_CALLBACK,
++                  USBKeyboardSetKeyLEDHandler,
++                  UsbKeyboardDevice,
++                  &UsbKeyboardDevice->LedUpdateEvent
++                  );
++  if (EFI_ERROR (Status)) {
++    goto ErrorExit;
++  }
++
+   //
+   // Get the Device Path Protocol on Controller's handle
+   //
+@@ -429,6 +440,10 @@ ErrorExit:
+       gBS->CloseEvent (UsbKeyboardDevice->TimerEvent);
+     }
+ 
++    if (UsbKeyboardDevice->LedUpdateEvent != NULL) {
++      gBS->CloseEvent (UsbKeyboardDevice->LedUpdateEvent);
++    }
++
+     if (UsbKeyboardDevice->SimpleInput.WaitForKey != NULL) {
+       gBS->CloseEvent (UsbKeyboardDevice->SimpleInput.WaitForKey);
+     }
+@@ -558,6 +573,7 @@ USBKeyboardDriverBindingStop (
+   // Free all resources.
+   //
+   gBS->CloseEvent (UsbKeyboardDevice->TimerEvent);
++  gBS->CloseEvent (UsbKeyboardDevice->LedUpdateEvent);
+   gBS->CloseEvent (UsbKeyboardDevice->RepeatTimer);
+   gBS->CloseEvent (UsbKeyboardDevice->DelayedRecoveryEvent);
+   gBS->CloseEvent (UsbKeyboardDevice->SimpleInput.WaitForKey);
+diff --git a/MdeModulePkg/Bus/Usb/UsbKbDxe/EfiKey.h b/MdeModulePkg/Bus/Usb/UsbKbDxe/EfiKey.h
+index b9e9a725ee..adc0feede9 100644
+--- a/MdeModulePkg/Bus/Usb/UsbKbDxe/EfiKey.h
++++ b/MdeModulePkg/Bus/Usb/UsbKbDxe/EfiKey.h
+@@ -119,6 +119,7 @@ typedef struct {
+   UINT8                                CurKeyCode;
+ 
+   EFI_EVENT                            TimerEvent;
++  EFI_EVENT                            LedUpdateEvent;
+ 
+   UINT8                                RepeatKey;
+   EFI_EVENT                            RepeatTimer;
+diff --git a/MdeModulePkg/Bus/Usb/UsbKbDxe/KeyBoard.c b/MdeModulePkg/Bus/Usb/UsbKbDxe/KeyBoard.c
+index 3e227cb79a..f7c0535129 100644
+--- a/MdeModulePkg/Bus/Usb/UsbKbDxe/KeyBoard.c
++++ b/MdeModulePkg/Bus/Usb/UsbKbDxe/KeyBoard.c
+@@ -1864,8 +1864,26 @@ SetKeyLED (
+   IN  USB_KB_DEV  *UsbKeyboardDevice
+   )
+ {
+-  LED_MAP  Led;
+-  UINT8    ReportId;
++  // Keyboard reports arrive at TPL_NOTIFY. Defer the synchronous USB control
++  // transfer so it runs at TPL_CALLBACK, where UsbBusDxe permits transfers.
++  if (UsbKeyboardDevice->LedUpdateEvent != NULL) {
++    gBS->SignalEvent (UsbKeyboardDevice->LedUpdateEvent);
++  }
++}
++
++VOID
++EFIAPI
++USBKeyboardSetKeyLEDHandler (
++  IN  EFI_EVENT  Event,
++  IN  VOID       *Context
++  )
++{
++  USB_KB_DEV  *UsbKeyboardDevice;
++  LED_MAP     Led;
++  UINT8       ReportId;
++
++  (VOID)Event;
++  UsbKeyboardDevice = (USB_KB_DEV *)Context;
+ 
+   //
+   // Set each field in Led map.
+diff --git a/MdeModulePkg/Bus/Usb/UsbKbDxe/KeyBoard.h b/MdeModulePkg/Bus/Usb/UsbKbDxe/KeyBoard.h
+index 05189444fc..253da12b1a 100644
+--- a/MdeModulePkg/Bus/Usb/UsbKbDxe/KeyBoard.h
++++ b/MdeModulePkg/Bus/Usb/UsbKbDxe/KeyBoard.h
+@@ -306,6 +306,13 @@ SetKeyLED (
+   IN  USB_KB_DEV  *UsbKeyboardDevice
+   );
+ 
++VOID
++EFIAPI
++USBKeyboardSetKeyLEDHandler (
++  IN  EFI_EVENT  Event,
++  IN  VOID       *Context
++  );
++
+ /**
+   Initialize the key state.
+ 
