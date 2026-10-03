@@ -15,89 +15,16 @@ ConfigurePin (
   )
 {
   UINT32 Configuration;
-  UINT32 Bank = GPIO_BANK(Pin);
-  UINT32 Number = GPIO_NUM(Pin);
-  UINT32 Bit = GPIO_CFG_BIT(Pin);
-  UINT32 Address = 0;
-  
-  switch (Bank) {
-    case SUNXI_GPIO_C:
-      switch (Number) {
-        case 0 ... 7:
-          Address = GPIO_CFG0_BASE(Bank);
-          break;
-        case 8 ... 15:
-          Address = GPIO_CFG1_BASE(Bank);
-          break;
-        case 16:
-          Address = GPIO_CFG2_BASE(Bank);
-          break;
-        default:
-          break;
-      }
-    break;
-    case SUNXI_GPIO_F:
-      switch (Number) {
-        case 0 ... 6:
-          Address = GPIO_CFG0_BASE(Bank);
-          break;
-        default:
-          break;
-      }
-      break;
-    case SUNXI_GPIO_G:
-      switch (Number) {
-        case 0 ... 7:
-          Address = GPIO_CFG0_BASE(Bank);
-          break;
-        case 8 ... 15:
-          Address = GPIO_CFG1_BASE(Bank);
-          break;
-        case 16 ... 19:
-          Address = GPIO_CFG2_BASE(Bank);
-          break;
-        default:
-          break;
-      }
-      break;
-    case SUNXI_GPIO_H:
-      switch (Number) {
-        case 0 ... 7:
-          Address = GPIO_CFG0_BASE(Bank);
-          break;
-        case 8 ... 10:
-          Address = GPIO_CFG1_BASE(Bank);
-          break;
-        default:
-          break;
-      }
-      break;
-    case SUNXI_GPIO_I:
-        switch (Number) {
-          case 0 ... 7:
-            Address = GPIO_CFG0_BASE(Bank);
-            break;
-          case 8 ... 15:
-            Address = GPIO_CFG1_BASE(Bank);
-            break;
-          case 16 ... 19:
-            Address = GPIO_CFG2_BASE(Bank);
-            break;
-          default:
-              break;
-        }
-      break;
-    default:
-      break;
-  }
-  
-  if (!Address)
-    return;
-  
+  UINT32 Bank    = GPIO_BANK(Pin);
+  UINT32 Bit     = GPIO_CFG_BIT(Pin);
+  UINTN  Address = GPIO_CFG0_BASE(Bank) + (GPIO_NUM(Pin) >> 3) * 4;
+
+  ASSERT_PIN (Pin);
+
   Configuration = MmioRead32(Address);
-  Configuration &= ~(0x7 << Bit);
-  Configuration |= (PinConfiguration << Bit);
-  
+  Configuration &= ~(0xF << Bit);
+  Configuration |= ((PinConfiguration & 0xF) << Bit);
+
   MmioWrite32(Address, Configuration);
 }
 
@@ -108,154 +35,31 @@ SetPinDrive (
   )
 {
   UINT32 Configuration;
-  UINT32 Bank = GPIO_BANK(Pin);
-  UINT32 Number = GPIO_NUM(Pin);
-  UINT32 Bit = GPIO_MDR_BIT(Pin);
-  UINT32 Address = 0;
+  UINT32 Bank    = GPIO_BANK(Pin);
+  UINT32 Bit     = GPIO_MDR_BIT(Pin);
+  UINTN  Address = GPIO_MDR0_BASE(Bank) + (GPIO_NUM(Pin) >> 4) * 4;
 
-  switch (Bank) {
-    case SUNXI_GPIO_C:
-      switch (Number) {
-          case 0 ... 15:
-            Address = GPIO_MDR0_BASE(Bank);
-            break;
-          case 16:
-            Address = GPIO_MDR1_BASE(Bank);
-            break;
-          default:
-            break;
-      }
-      break;
-    case SUNXI_GPIO_F:
-      switch (Number) {
-          case 0 ... 6:
-            Address = GPIO_MDR0_BASE(Bank);
-            break;
-          default:
-            break;
-      }
-      break;
-    case SUNXI_GPIO_G:
-      switch (Number) {
-          case 0 ... 15:
-            Address = GPIO_MDR0_BASE(Bank);
-            break;
-          case 16 ... 19:
-            Address = GPIO_MDR1_BASE(Bank);
-            break;
-          default:
-            break;
-      }
-      break;
-    case SUNXI_GPIO_H:
-      switch (Number) {
-          case 0 ... 10:
-            Address = GPIO_MDR0_BASE(Bank);
-            break;
-          default:
-            break;
-      }
-      break;
-    case SUNXI_GPIO_I:
-      switch (Number) {
-        case 0 ... 15:
-          Address = GPIO_MDR0_BASE(Bank);
-          break;
-        case 16:
-          Address = GPIO_MDR1_BASE(Bank);
-          break;
-        default:
-          break;
-      }
-      break;
-    default:
-      break;
-  }
-
-  if (!Address)
-    return;
+  ASSERT_PIN (Pin);
 
   Configuration = MmioRead32(Address);
   Configuration &= ~(0x3 << Bit);
-  Configuration |= (Level << Bit);
+  Configuration |= ((Level & 0x3) << Bit);
 
   MmioWrite32(Address, Configuration);
 }
 
 VOID
-SetPinPull(
+SetPinPull (
   UINT32 Pin,
   UINT32 Level
-)
+  )
 {
   UINT32 Configuration;
-  UINT32 Bank = GPIO_BANK(Pin);
-  UINT32 Number = GPIO_NUM(Pin);
-  UINT32 Index = GPIO_PULL_INDEX(Pin);
+  UINT32 Bank   = GPIO_BANK(Pin);
   UINT32 Offset = GPIO_PULL_OFFSET(Pin);
-  UINT32 Address = GPIO_PULL_BASE(Bank) + Index;
+  UINTN  Address = GPIO_PULL_BASE(Bank) + GPIO_PULL_INDEX(Pin) * 4;
 
-  switch (Bank) {
-    case SUNXI_GPIO_C:
-      switch (Number) {
-        case 0 ... 15:
-          Address = GPIO_MDR0_BASE(Bank);
-          break;
-        case 16:
-          Address = GPIO_MDR1_BASE(Bank);
-          break;
-        default:
-          break;
-      }
-      break;
-    case SUNXI_GPIO_F:
-      switch (Number) {
-        case 0 ... 6:
-          Address = GPIO_MDR0_BASE(Bank);
-          break;
-        default:
-          break;
-      }
-      break;
-    case SUNXI_GPIO_G:
-      switch (Number) {
-          case 0 ... 15:
-            Address = GPIO_MDR0_BASE(Bank);
-            break;
-          case 16 ... 19:
-            Address = GPIO_MDR1_BASE(Bank);
-            break;
-          default:
-            break;
-      }
-      break;
-    case SUNXI_GPIO_H:
-      switch (Number) {
-          case 0 ... 10:
-            Address = GPIO_MDR0_BASE(Bank);
-            break;
-          default:
-            break;
-      }
-      break;
-    case SUNXI_GPIO_I:
-      switch (Number) {
-          case 0 ... 15:
-            Address = GPIO_MDR0_BASE(Bank);
-            break;
-          case 16:
-            Address = GPIO_MDR1_BASE(Bank);
-            break;
-          default:
-            break;
-      }
-      break;
-    default:
-      break;
-  }
-
-  if (!Address)
-    return;
+  ASSERT_PIN (Pin);
 
   Configuration = MmioRead32(Address);
   Configuration &= ~(0x3 << Offset);
@@ -274,6 +78,8 @@ SetPinState (
     UINT32 Bank = GPIO_BANK(Pin);
     UINT32 Number = GPIO_NUM(Pin);
     UINT32 Address = GPIO_DAT_BASE(Bank);
+
+    ASSERT_PIN (Pin);
 
     Configuration = MmioRead32(Address);
     if (Enable)
@@ -294,6 +100,8 @@ GetPinState (
     UINT32 Number = GPIO_NUM(Pin);
     UINT32 Address = GPIO_DAT_BASE(Bank);
 
+    ASSERT_PIN (Pin);
+
     Configuration = MmioRead32(Address);
     return (Configuration >> Number) & 1;
 }
@@ -302,7 +110,8 @@ STATIC GPIO_PROTOCOL mGpioProtocol = {
   ConfigurePin,
   SetPinPull,
   SetPinState,
-  GetPinState
+  GetPinState,
+  SetPinDrive
 };
 
 EFI_STATUS

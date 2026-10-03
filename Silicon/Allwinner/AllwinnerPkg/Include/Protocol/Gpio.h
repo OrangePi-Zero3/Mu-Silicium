@@ -13,7 +13,7 @@
 #define SUNXI_GPIO_F    5
 #define SUNXI_GPIO_G    6
 #define SUNXI_GPIO_H    7
-#define SUNXI_GPIO_I    9
+#define SUNXI_GPIO_I    8
 
 // GPIO bank sizes
 #define SUNXI_GPIO_A_NR    (32) // Unused
@@ -72,35 +72,43 @@ typedef struct _GPIO_PROTOCOL GPIO_PROTOCOL;
 typedef
 VOID
 (EFIAPI *GPIO_CONFIGURE_PIN) (
-	IN UINT32 Pin,
-	IN UINT32 PinConfiguration
-	);
+  IN UINT32  Pin,
+  IN UINT32  PinConfiguration
+  );
+
+typedef
+VOID
+(EFIAPI *GPIO_SET_PIN_DRIVE) (
+  IN UINT32  Pin,
+  IN UINT32  Drive
+  );
 
 typedef
 VOID
 (EFIAPI *GPIO_SET_PIN_PULL) (
-	IN UINT32 Pin,
-	IN UINT32 Pull
-	);
+  IN UINT32  Pin,
+  IN UINT32  Pull
+  );
 
 typedef
 VOID
 (EFIAPI *GPIO_SET_PIN_STATE) (
-	IN UINT32 Pin,
-	IN UINT32 Enable
-	);
+  IN UINT32  Pin,
+  IN UINT32  Enable
+  );
 
 typedef
 UINT32
 (EFIAPI *GPIO_GET_PIN_STATE) (
-	IN UINT32 Pin
-	);
+  IN UINT32  Pin
+  );
 
 struct _GPIO_PROTOCOL {
-	GPIO_CONFIGURE_PIN     ConfigurePin;
-	GPIO_SET_PIN_PULL      SetPinPull;
-	GPIO_SET_PIN_STATE     SetPinState;
-	GPIO_GET_PIN_STATE     GetPinState;
+  GPIO_CONFIGURE_PIN  ConfigurePin;
+  GPIO_SET_PIN_PULL   SetPinPull;
+  GPIO_SET_PIN_STATE  SetPinState;
+  GPIO_GET_PIN_STATE  GetPinState;
+  GPIO_SET_PIN_DRIVE  SetPinDrive;
 };
 
 extern EFI_GUID gGpioProtocolGuid;
