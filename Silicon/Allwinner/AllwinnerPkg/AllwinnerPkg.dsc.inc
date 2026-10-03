@@ -25,6 +25,16 @@
   AllwinnerPkg/Drivers/GpioDxe/GpioDxe.inf
 
   #
+  # "RNG" Driver
+  #
+  AllwinnerPkg/Drivers/RngDxe/RngDxe.inf
+
+  #
+  # Ethernet MAC
+  #
+  AllwinnerPkg/Drivers/EmacDxe/EmacDxe.inf
+
+  #
   # USB host driver
   #
   AllwinnerPkg/Drivers/UsbHostDxe/UsbHostDxe.inf
