@@ -12,6 +12,7 @@
 [LibraryClasses]
   ClockLib|AllwinnerPkg/Library/ClockLib/ClockLib.inf
   RamManagerLib|AllwinnerPkg/Library/RamManagerLib/RamManagerLib.inf
+  PlatformBootOptionsLib|AllwinnerPkg/Library/PlatformBootOptionsLib/PlatformBootOptionsLib.inf
 
 [Components]
   #
@@ -63,3 +64,8 @@
   # Storage Drivers
   #
   AllwinnerPkg/Drivers/MmcDxe/MmcDxe.inf
+
+  #
+  # Custom Apps
+  #
+  AllwinnerPkg/Applications/FirmwareUpdater/FirmwareUpdater.inf

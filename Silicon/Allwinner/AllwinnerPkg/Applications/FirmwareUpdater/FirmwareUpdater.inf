@@ -1,0 +1,31 @@
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = FirmwareUpdater
+  FILE_GUID                      = 3c1f6b52-8a47-4e0d-9d2b-5f7a1e4c90a8
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = UefiMain
+
+[Sources]
+  FirmwareUpdater.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Allwinner/AllwinnerPkg/AllwinnerPkg.dec
+
+[LibraryClasses]
+  UefiApplicationEntryPoint
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  UefiLib
+  MemoryAllocationLib
+  BaseMemoryLib
+  BaseLib
+  DebugLib
+
+[Protocols]
+  gEfiSimpleFileSystemProtocolGuid
+  gAwSpiNorFlashProtocolGuid
+
+[Guids]
+  gEfiFileInfoGuid
