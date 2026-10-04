@@ -26,6 +26,8 @@
   INF AllwinnerPkg/Drivers/GpioDxe/GpioDxe.inf
   INF AllwinnerPkg/Drivers/UsbHostDxe/UsbHostDxe.inf
   INF AllwinnerPkg/Drivers/I2cDxe/I2cDxe.inf
+  INF AllwinnerPkg/Drivers/SpiDxe/SpiDxe.inf
+  INF AllwinnerPkg/Drivers/AwSpiNorFlashDxe/AwSpiNorFlashDxe.inf
   INF AllwinnerPkg/Drivers/PmicDxe/PmicDxe.inf
   INF AllwinnerPkg/Drivers/EmacDxe/EmacDxe.inf
 

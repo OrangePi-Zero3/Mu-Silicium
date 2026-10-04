@@ -1,0 +1,29 @@
+[Defines]
+  INF_VERSION                   = 0x00010005
+  BASE_NAME                     = AwSpiNorFlashDxe
+  FILE_GUID                     = 9a6b7ec2-fc2c-413a-877d-e61e0e16c4c6
+  MODULE_TYPE                   = DXE_DRIVER
+  VERSION_STRING                = 0.1
+  ENTRY_POINT                   = SpiNorFlashDriverEntry
+
+[Sources]
+  AwSpiNorFlashDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  AllwinnerPkg/AllwinnerPkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiBootServicesTableLib
+  IoLib
+  TimerLib
+  DebugLib
+
+[Protocols]
+  gSpiProtocolGuid           ## CONSUMES
+  gAwSpiNorFlashProtocolGuid   ## PRODUCES
+
+[Depex]
+  TRUE

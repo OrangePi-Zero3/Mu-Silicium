@@ -45,6 +45,16 @@
   AllwinnerPkg/Drivers/I2cDxe/I2cDxe.inf
 
   #
+  # SPI Driver
+  #
+  AllwinnerPkg/Drivers/SpiDxe/SpiDxe.inf
+
+  #
+  # SPI Nor Flash Driver
+  #
+  AllwinnerPkg/Drivers/AwSpiNorFlashDxe/AwSpiNorFlashDxe.inf
+
+  #
   # PMIC Driver
   #
   AllwinnerPkg/Drivers/PmicDxe/PmicDxe.inf
