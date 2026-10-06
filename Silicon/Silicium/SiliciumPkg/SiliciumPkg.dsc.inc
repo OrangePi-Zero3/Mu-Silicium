@@ -25,6 +25,9 @@
 [BuildOptions.common.EDKII.MM_CORE_STANDALONE,BuildOptions.common.EDKII.MM_STANDALONE]
   *_CLANGPDB_AARCH64_CC_FLAGS = -mstrict-align
 
+[Defines]
+  SKIP_UFP = 0
+
 [PcdsFixedAtBuild]
   #
   # Firmware Details
@@ -503,4 +506,6 @@
   # UEFI Applications
   #
   MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf
+!if $(SKIP_UFP) == 0
   SiliciumPkg/Applications/UFPLoader/UFPLoader.inf
+!endif

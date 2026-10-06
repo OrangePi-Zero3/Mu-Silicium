@@ -8,13 +8,21 @@
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 ##
 
+!include AllwinnerPkg/AllwinnerPkg.dsc.inc
+
 [Defines]
   #
   # Timer
   #
   USE_PHYSICAL_TIMER                         = 0
 
-!include AllwinnerPkg/AllwinnerPkg.dsc.inc
+  #
+  # Skip shipping UFP
+  #
+  SKIP_UFP = 1
+
+[BuildOptions]
+  *_*_AARCH64_CC_FLAGS = -DSKIP_UFP=1
 
 [PcdsFixedAtBuild]
   #

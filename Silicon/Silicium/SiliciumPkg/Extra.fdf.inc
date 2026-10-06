@@ -9,8 +9,10 @@
   #
   INF MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf
   INF PcBdsPkg/MsBootPolicy/MsBootPolicy.inf
+!if $(SKIP_UFP) == 0
   INF SiliciumPkg/Applications/UFPLoader/UFPLoader.inf
   INF SiliciumPkg/Applications/UFP/ufpdevicefw.inf
+!endif
 
   #
   # RAW Files
