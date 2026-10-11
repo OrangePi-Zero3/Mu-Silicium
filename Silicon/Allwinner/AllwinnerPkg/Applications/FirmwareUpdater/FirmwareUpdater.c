@@ -7,12 +7,186 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
+#include <IndustryStandard/Acpi50.h>
 
 #include <Protocol/SimpleFileSystem.h>
+#include <Protocol/GraphicsOutput.h>
+#include <Protocol/AcpiSystemDescriptionTable.h>
 #include <Guid/FileInfo.h>
 #include <Protocol/AwSpiNorFlash.h>
 
 #define IMAGE_NAME  L"spl-bootable.img"
+#define PROGRESS_BAR_HEIGHT  12
+#define FLASH_READ_CHUNK     4096
+
+STATIC EFI_GRAPHICS_OUTPUT_PROTOCOL *mGop;
+STATIC UINTN mProgressX;
+STATIC UINTN mProgressY;
+STATIC UINTN mProgressWidth;
+STATIC UINTN mLastProgressPercent = MAX_UINTN;
+
+STATIC
+VOID
+DrawProgress (
+  IN UINTN Percent
+  )
+{
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Color;
+  UINTN                          InnerWidth;
+  UINTN                          FillWidth;
+
+  if ((mGop == NULL) || (mProgressWidth == 0)) {
+    return;
+  }
+
+  if (Percent > 100) {
+    Percent = 100;
+  }
+
+  Color.Blue = 0xB0;
+  Color.Green = 0xB0;
+  Color.Red = 0xB0;
+  Color.Reserved = 0;
+  mGop->Blt (mGop, &Color, EfiBltVideoFill, 0, 0, mProgressX, mProgressY,
+             mProgressWidth, PROGRESS_BAR_HEIGHT, 0);
+
+  InnerWidth = mProgressWidth > 4 ? mProgressWidth - 4 : 0;
+  Color.Blue = 0x20;
+  Color.Green = 0x20;
+  Color.Red = 0x20;
+  mGop->Blt (mGop, &Color, EfiBltVideoFill, 0, 0, mProgressX + 2,
+             mProgressY + 2, InnerWidth, PROGRESS_BAR_HEIGHT - 4, 0);
+
+  FillWidth = (InnerWidth * Percent) / 100;
+  if (FillWidth != 0) {
+    Color.Blue = 0xD0;
+    Color.Green = 0xA0;
+    Color.Red = 0x30;
+    mGop->Blt (mGop, &Color, EfiBltVideoFill, 0, 0, mProgressX + 2,
+               mProgressY + 2, FillWidth, PROGRESS_BAR_HEIGHT - 4, 0);
+  }
+}
+
+STATIC
+VOID
+UpdateProgress (
+  IN UINT64 Completed,
+  IN UINT64 Total,
+  IN UINTN  StartPercent,
+  IN UINTN  EndPercent
+  )
+{
+  UINTN Percent;
+
+  if ((Total == 0) || (EndPercent < StartPercent)) {
+    return;
+  }
+
+  if (Completed > Total) {
+    Completed = Total;
+  }
+
+  Percent = StartPercent + (UINTN)(((UINT64)(EndPercent - StartPercent) * Completed) / Total);
+  if (Percent != mLastProgressPercent) {
+    DrawProgress (Percent);
+    mLastProgressPercent = Percent;
+  }
+}
+
+// Position the bar just below the BGRT bitmap, leaving the logo untouched.
+STATIC
+VOID
+InitializeProgressBar (
+  VOID
+  )
+{
+  EFI_ACPI_SDT_PROTOCOL                     *AcpiSdt;
+  EFI_ACPI_SDT_HEADER                       *AcpiTable;
+  EFI_ACPI_5_0_BOOT_GRAPHICS_RESOURCE_TABLE  *Bgrt;
+  EFI_GRAPHICS_OUTPUT_MODE_INFORMATION      *Mode;
+  UINTN                                      Index;
+  UINTN                                      TableKey;
+  UINTN                                      ScreenWidth;
+  UINTN                                      ScreenHeight;
+  UINTN                                      LogoBottom;
+  UINT32                                     LogoWidth;
+  UINT32                                     LogoHeight;
+  UINT32                                     BmpWidth;
+  UINT32                                     BmpHeight;
+  EFI_ACPI_TABLE_VERSION                    Version;
+
+  mGop = NULL;
+  mProgressWidth = 0;
+  if (EFI_ERROR (gBS->LocateProtocol (&gEfiGraphicsOutputProtocolGuid, NULL, (VOID **)&mGop)) ||
+      (mGop->Mode == NULL) || (mGop->Mode->Info == NULL)) {
+    mGop = NULL;
+    return;
+  }
+
+  Mode = mGop->Mode->Info;
+  ScreenWidth = Mode->HorizontalResolution;
+  ScreenHeight = Mode->VerticalResolution;
+  mProgressWidth = MIN (ScreenWidth > 40 ? ScreenWidth - 40 : 0, 480);
+  if (mProgressWidth < 80) {
+    mProgressWidth = 0;
+    return;
+  }
+
+  mProgressX = (ScreenWidth - mProgressWidth) / 2;
+  LogoBottom = 0;
+  LogoWidth = 0;
+  LogoHeight = 0;
+  if (!EFI_ERROR (gBS->LocateProtocol (&gEfiAcpiSdtProtocolGuid, NULL, (VOID **)&AcpiSdt))) {
+    for (Index = 0; ; Index++) {
+      if (EFI_ERROR (AcpiSdt->GetAcpiTable (Index, &AcpiTable, &Version, &TableKey))) {
+        break;
+      }
+
+      if ((AcpiTable->Signature == EFI_ACPI_5_0_BOOT_GRAPHICS_RESOURCE_TABLE_SIGNATURE) &&
+          (AcpiTable->Length >= sizeof (*Bgrt))) {
+        Bgrt = (EFI_ACPI_5_0_BOOT_GRAPHICS_RESOURCE_TABLE *)AcpiTable;
+        if (((Bgrt->Status & EFI_ACPI_5_0_BGRT_STATUS_VALID) != 0) &&
+            (Bgrt->ImageType == EFI_ACPI_5_0_BGRT_IMAGE_TYPE_BMP) &&
+            (Bgrt->ImageAddress != 0)) {
+          // BITMAPINFOHEADER width/height are at byte offsets 18 and 22.
+          // Use the absolute height because BMPs may be stored bottom-up.
+          CopyMem (&BmpWidth, (VOID *)(UINTN)(Bgrt->ImageAddress + 18), sizeof (BmpWidth));
+          CopyMem (&BmpHeight, (VOID *)(UINTN)(Bgrt->ImageAddress + 22), sizeof (BmpHeight));
+          LogoWidth = BmpWidth;
+          LogoHeight = BmpHeight;
+          if ((BmpHeight & 0x80000000U) != 0) {
+            LogoHeight = (UINT32)(-(INT32)BmpHeight);
+          }
+          if ((LogoWidth != 0) && (LogoHeight != 0) && (LogoWidth <= ScreenWidth) &&
+              (LogoHeight <= ScreenHeight) && (Bgrt->ImageOffsetX <= ScreenWidth - LogoWidth) &&
+              (Bgrt->ImageOffsetY <= ScreenHeight - LogoHeight)) {
+            LogoBottom = Bgrt->ImageOffsetY + LogoHeight;
+            mProgressWidth = MIN (mProgressWidth, LogoWidth);
+            mProgressX = Bgrt->ImageOffsetX + (LogoWidth - mProgressWidth) / 2;
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  // Fall back to a lower-screen position on systems without a valid BGRT.
+  mProgressY = (LogoBottom != 0) ? LogoBottom + 18 : (ScreenHeight * 3) / 4;
+  if ((LogoBottom != 0) && (mProgressY + PROGRESS_BAR_HEIGHT > ScreenHeight)) {
+    mProgressWidth = 0;
+    return;
+  }
+  if (LogoBottom == 0) {
+    mProgressX = (ScreenWidth - mProgressWidth) / 2;
+  }
+
+  // Avoid drawing the bar off-screen on small panels.
+  if (mProgressY + PROGRESS_BAR_HEIGHT > ScreenHeight) {
+    mProgressY = ScreenHeight - PROGRESS_BAR_HEIGHT - 8;
+  }
+  DrawProgress (0);
+  mLastProgressPercent = 0;
+}
 
 STATIC
 EFI_STATUS
@@ -151,6 +325,12 @@ UefiMain (
   UINT8                   *Current;
   UINT32                  ImageSize;
   UINT32                  EraseLen;
+  UINT32                  EraseOffset;
+  UINT32                  WriteOffset;
+  UINT32                  ChunkSize;
+  UINT32                  ReadOffset;
+  UINT64                  EraseLen64;
+  UINTN                   Countdown;
 
   Image     = NULL;
   Current   = NULL;
@@ -178,15 +358,22 @@ UefiMain (
     goto Out;
   }
 
-  EraseLen = (ImageSize + Nor->EraseSize - 1) / Nor->EraseSize * Nor->EraseSize;
-  if ((UINT64)EraseLen > Nor->FlashSize) {
+  if ((Nor->EraseSize == 0) || (Nor->PageSize == 0)) {
+    Print (L"SPI NOR reports invalid erase or page size\n");
+    Status = EFI_DEVICE_ERROR;
+    goto Out;
+  }
+
+  EraseLen64 = (((UINT64)ImageSize + Nor->EraseSize - 1) / Nor->EraseSize) * Nor->EraseSize;
+  if ((EraseLen64 > MAX_UINT32) || (EraseLen64 > Nor->FlashSize)) {
     Print (L"Image (%u bytes) does not fit in flash (%lu bytes)\n", ImageSize, Nor->FlashSize);
     DEBUG ((EFI_D_ERROR, "Image (%u bytes) does not fit in flash (%lu bytes)\n", ImageSize, Nor->FlashSize));
     Status = EFI_BAD_BUFFER_SIZE;
     goto Out;
   }
+  EraseLen = (UINT32)EraseLen64;
 
-  if (CompareMem(Image + 4, "eGON.BT0", 8) != 0) {
+  if ((ImageSize < 12) || (CompareMem (Image + 4, "eGON.BT0", 8) != 0)) {
     Print (L"Image does not have valid SPL signature, aborting\n");
     DEBUG ((EFI_D_ERROR, "Image does not have valid SPL signature, aborting\n"));
     Status = EFI_ABORTED;
@@ -199,14 +386,24 @@ UefiMain (
     goto Out;
   }
 
-  Status = Nor->Read (Nor, 0, ImageSize, Current);
-  if (EFI_ERROR (Status)) {
-    Print (L"Flash read failed: %r\n", Status);
-    DEBUG ((EFI_D_ERROR, "Flash read failed: %r\n", Status));
-    goto Out;
+  InitializeProgressBar ();
+  mLastProgressPercent = 0;
+  Print (L"Reading flash...\n");
+  for (ReadOffset = 0; ReadOffset < ImageSize; ReadOffset += ChunkSize) {
+    ChunkSize = MIN (FLASH_READ_CHUNK, ImageSize - ReadOffset);
+    Status = Nor->Read (Nor, ReadOffset, ChunkSize, Current + ReadOffset);
+    if (EFI_ERROR (Status)) {
+      Print (L"Flash read failed: %r\n", Status);
+      DEBUG ((EFI_D_ERROR, "Flash read failed: %r\n", Status));
+      goto Out;
+    }
+
+    UpdateProgress ((UINT64)ReadOffset + ChunkSize, ImageSize, 0, 10);
   }
 
   if (CompareMem (Image, Current, ImageSize) == 0) {
+    DrawProgress (100);
+    mLastProgressPercent = 100;
     Print (L"Flash already contains this image, nothing to do\n");
     DEBUG ((EFI_D_WARN, "Flash already contains this image, nothing to do\n"));
     Status = EFI_SUCCESS;
@@ -215,33 +412,56 @@ UefiMain (
 
   Print (L"Flash differs, updating (erase %u bytes)... do not power off\n", EraseLen);
   DEBUG ((EFI_D_WARN, "Flash differs, updating (erase %u bytes)... do not power off\n", EraseLen));
+  for (EraseOffset = 0; EraseOffset < EraseLen; EraseOffset += Nor->EraseSize) {
+    Status = Nor->Erase (Nor, EraseOffset, Nor->EraseSize);
+    if (EFI_ERROR (Status)) {
+      Print (L"Flash erase failed at 0x%08x: %r\n", EraseOffset, Status);
+      DEBUG ((EFI_D_ERROR, "Flash erase failed at 0x%08x: %r\n", EraseOffset, Status));
+      goto Out;
+    }
 
-  Status = Nor->Erase (Nor, 0, EraseLen);
-  if (EFI_ERROR (Status)) {
-    Print (L"Erase failed: %r\n", Status);
-    DEBUG ((EFI_D_ERROR, "Erase failed: %r\n", Status));
-    goto Out;
+    UpdateProgress ((UINT64)EraseOffset + Nor->EraseSize, EraseLen, 10, 40);
   }
 
-  Status = Nor->Write (Nor, 0, ImageSize, Image);
-  if (EFI_ERROR (Status)) {
-    Print (L"Write failed: %r\n", Status);
-    DEBUG ((EFI_D_ERROR, "Write failed: %r\n", Status));
-    goto Out;
+  for (WriteOffset = 0; WriteOffset < ImageSize; WriteOffset += ChunkSize) {
+    ChunkSize = MIN (Nor->PageSize, ImageSize - WriteOffset);
+    Status = Nor->Write (Nor, WriteOffset, ChunkSize, Image + WriteOffset);
+    if (EFI_ERROR (Status)) {
+      Print (L"Flash write failed at 0x%08x: %r\n", WriteOffset, Status);
+      DEBUG ((EFI_D_ERROR, "Flash write failed at 0x%08x: %r\n", WriteOffset, Status));
+      goto Out;
+    }
+
+    UpdateProgress ((UINT64)WriteOffset + ChunkSize, ImageSize, 40, 75);
   }
 
-  ZeroMem (Current, ImageSize);
-  Status = Nor->Read (Nor, 0, ImageSize, Current);
-  if (EFI_ERROR (Status) || (CompareMem (Image, Current, ImageSize) != 0)) {
-    Print (L"VERIFY FAILED! Please program an SD card with UEFI, insert into system and reboot!\n");
-    DEBUG ((EFI_D_ERROR, "VERIFY FAILED! Please program an SD card with UEFI, insert into system and reboot!\n"));
-    Status = EFI_DEVICE_ERROR;
-    goto Out;
+  Print (L"Verifying flash...\n");
+  for (ReadOffset = 0; ReadOffset < ImageSize; ReadOffset += ChunkSize) {
+    ChunkSize = MIN (FLASH_READ_CHUNK, ImageSize - ReadOffset);
+    Status = Nor->Read (Nor, ReadOffset, ChunkSize, Current + ReadOffset);
+    if (EFI_ERROR (Status)) {
+      Print (L"Flash verify read failed at 0x%08x: %r\n", ReadOffset, Status);
+      DEBUG ((EFI_D_ERROR, "Flash verify read failed at 0x%08x: %r\n", ReadOffset, Status));
+      goto Out;
+    }
+
+    if (CompareMem (Image + ReadOffset, Current + ReadOffset, ChunkSize) != 0) {
+      Print (L"VERIFY FAILED at flash offset 0x%08x! Please program an SD card with UEFI, insert into system and reboot!\n", ReadOffset);
+      DEBUG ((EFI_D_ERROR, "VERIFY FAILED at flash offset 0x%08x!\n", ReadOffset));
+      Status = EFI_DEVICE_ERROR;
+      goto Out;
+    }
+
+    UpdateProgress ((UINT64)ReadOffset + ChunkSize, ImageSize, 75, 100);
   }
 
-  Print (L"Flash updated and verified, rebooting...\n");
+  DrawProgress (100);
+  Print (L"Flash updated and verified. Rebooting in 5 seconds...\n");
   DEBUG ((EFI_D_WARN, "Flash updated and verified, rebooting...\n"));
-  gBS->Stall (2000000);
+  for (Countdown = 5; Countdown > 0; Countdown--) {
+    Print (L"Rebooting in %u...\n", (UINT32)Countdown);
+    gBS->Stall (1000000);
+  }
   gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);
   Status = EFI_SUCCESS;
 

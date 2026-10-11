@@ -26,6 +26,8 @@
 [Protocols]
   gEfiSimpleFileSystemProtocolGuid
   gAwSpiNorFlashProtocolGuid
+  gEfiGraphicsOutputProtocolGuid
+  gEfiAcpiSdtProtocolGuid
 
 [Guids]
   gEfiFileInfoGuid
