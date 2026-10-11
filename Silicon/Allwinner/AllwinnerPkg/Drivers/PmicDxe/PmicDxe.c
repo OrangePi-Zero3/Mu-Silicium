@@ -272,6 +272,43 @@ PmicGetAldo1MilliVolt (
 STATIC
 EFI_STATUS
 EFIAPI
+PmicSetDcdcEnabled (
+  IN UINT8    Dcdc,
+  IN BOOLEAN  Enabled
+  )
+{
+  EFI_STATUS  Status;
+  UINT8       OutputCtrl;
+  UINT8       EnableMask;
+  UINT8       NewOutputCtrl;
+
+  if ((Dcdc < 1) || (Dcdc > 3)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  EnableMask = (UINT8)(1U << (Dcdc - 1));
+  Status = mI2cProtocol->Read (AXP313_I2C_ADDR, AXP313_OUTPUT_CTRL, &OutputCtrl);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  NewOutputCtrl = Enabled ? (OutputCtrl | EnableMask) : (OutputCtrl & (UINT8)~EnableMask);
+  if (NewOutputCtrl == OutputCtrl) {
+    return EFI_SUCCESS;
+  }
+
+  Status = mI2cProtocol->Write (AXP313_I2C_ADDR, AXP313_OUTPUT_CTRL, NewOutputCtrl);
+  if (!EFI_ERROR (Status) && Enabled) {
+    // The Zero3 HDMI regulator constraints specify a 50 us final settle time.
+    MicroSecondDelay (50);
+  }
+
+  return Status;
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
 PmicSetAldo1Enabled (
   IN ALLWINNER_PMIC_PROTOCOL  *This,
   IN BOOLEAN                   Enabled)
@@ -295,7 +332,12 @@ PmicSetAldo1Enabled (
     return EFI_SUCCESS;
   }
 
-  return mI2cProtocol->Write (AXP313_I2C_ADDR, AXP313_OUTPUT_CTRL, NewOutputCtrl);
+  Status = mI2cProtocol->Write (AXP313_I2C_ADDR, AXP313_OUTPUT_CTRL, NewOutputCtrl);
+  if (!EFI_ERROR (Status) && Enabled) {
+    MicroSecondDelay (50);
+  }
+
+  return Status;
 }
 
 EFI_STATUS
@@ -330,6 +372,14 @@ PmicDxeEntry (
     return EFI_SUCCESS;
   }
 
+  Status = PmicSetDcdcEnabled (1, TRUE);
+  if (EFI_ERROR (Status))
+    DEBUG ((EFI_D_ERROR, "PmicDxe: failed to enable HDMI DCDC1: %r\n", Status));
+
+  Status = PmicSetAldo1Enabled (&mPmicProtocol, TRUE);
+  if (EFI_ERROR (Status))
+    DEBUG ((EFI_D_ERROR, "PmicDxe: failed to enable HDMI ALDO1: %r\n", Status));
+
   Status = PmicGetDcdcMilliVolt (&mPmicProtocol, 2, &MilliVolt);
   DEBUG ((
     EFI_D_WARN,
@@ -344,9 +394,6 @@ PmicDxeEntry (
   Status = PmicGetDldo1MilliVolt(&mPmicProtocol, &MilliVolt);
   DEBUG ((EFI_D_WARN, "PmicDxe: vdd-3v3 currently %u mV\n", EFI_ERROR (Status) ? 0 : MilliVolt));
 
-  //PmicSetAldo1Enabled(&mPmicProtocol, FALSE);
-  //PmicSetAldo1MilliVolt(&mPmicProtocol, 1800);
-  //PmicSetAldo1Enabled(&mPmicProtocol, TRUE);
   Status = PmicGetAldo1MilliVolt(&mPmicProtocol, &MilliVolt);
   DEBUG ((EFI_D_WARN, "PmicDxe: vdd-1v8 currently %u mV\n", EFI_ERROR (Status) ? 0 : MilliVolt));
 
