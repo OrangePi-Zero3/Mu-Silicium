@@ -19,19 +19,16 @@ H618ClockSolve (
 {
   UINT32 Total;
 
-  if (PixelClockKhz == 0) {
+  if (PixelClockKhz == 0)
     return FALSE;
-  }
 
-  if ((H618_PLL_VIDEO0X4_KHZ % PixelClockKhz) != 0) {
+  if ((H618_PLL_VIDEO0X4_KHZ % PixelClockKhz) != 0)
     return FALSE;
-  }
 
   Total = H618_PLL_VIDEO0X4_KHZ / PixelClockKhz;
 
-  if ((Total < 1) || (Total > 16)) {
+  if ((Total < 1) || (Total > 16))
     return FALSE;
-  }
 
   *DivN = 0;
   *DivM = Total - 1;
@@ -45,8 +42,7 @@ H618DisplayClockSupported (
 {
   UINT32 N, M;
 
-  return (BOOLEAN)(H618ClockSolve (PixelClockKhz, &N, &M) &&
-                   (H618PhyGetConfig (PixelClockKhz) != NULL));
+  return (BOOLEAN)(H618ClockSolve (PixelClockKhz, &N, &M) && (H618PhyGetConfig (PixelClockKhz) != NULL));
 }
 
 VOID
@@ -86,8 +82,7 @@ H618ClocksInit (
  
   CcmClkConfigure (CLK_TCON_TV0, CCM_TCON_TV_MUX_PLL_VIDEO0X4, DivM, DivN);
  
-  CcmClkConfigure (CLK_HDMI, CCM_HDMI_MUX_PLL_VIDEO0X4,
-    (((DivM + 1) << DivN) - 1), 0);
+  CcmClkConfigure (CLK_HDMI, CCM_HDMI_MUX_PLL_VIDEO0X4, (((DivM + 1) << DivN) - 1), 0);
  
   MmioWrite32 (H618_HDMI_PHY_BASE + PHY_REXT_CTRL_REG_OFFSET, PHY_REXT_CTRL_VALUE);
 }

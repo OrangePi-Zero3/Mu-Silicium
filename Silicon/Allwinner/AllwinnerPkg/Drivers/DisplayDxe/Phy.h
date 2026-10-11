@@ -100,6 +100,24 @@
 #define HDMI_IH_I2CMPHY_STAT0_ERROR 0x01
 #define HDMI_IH_I2CMPHY_STAT0_DONE  0x02
 
+// HDMI controller DDC I2C master registers.
+#define HDMI_IH_I2CM_STAT0_REG          0x0105
+#define HDMI_IH_I2CM_STAT0_ERROR        0x01
+#define HDMI_IH_I2CM_STAT0_DONE         0x02
+#define HDMI_I2CM_SLAVE_REG             0x7E00
+#define HDMI_I2CM_ADDRESS_REG           0x7E01
+#define HDMI_I2CM_OPERATION_REG         0x7E04
+#define HDMI_I2CM_OPERATION_READ_SEQ    0x04
+#define HDMI_I2CM_OPERATION_READ_SEQ_EXT 0x08
+#define HDMI_I2CM_DIV_REG               0x7E07
+#define HDMI_I2CM_SEGADDR_REG           0x7E08
+#define HDMI_I2CM_SEGPTR_REG            0x7E0A
+#define HDMI_I2CM_SS_SCL_HCNT1_REG      0x7E0B
+#define HDMI_I2CM_SS_SCL_HCNT0_REG      0x7E0C
+#define HDMI_I2CM_SS_SCL_LCNT1_REG      0x7E0D
+#define HDMI_I2CM_SS_SCL_LCNT0_REG      0x7E0E
+#define HDMI_I2CM_READ_BUFF0_REG        0x7E20
+
 #define PHY_I2C_OPMODE_PLLCFG       0x06
 #define PHY_I2C_CKSYMTXCTRL         0x09
 #define PHY_I2C_VLEVCTRL            0x0E

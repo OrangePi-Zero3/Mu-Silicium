@@ -11,3 +11,8 @@ VOID
 H618ClocksInit (
   IN CONST DISPLAY_MODE  *Mode
  );
+
+BOOLEAN
+H618DisplayClockSupported (
+  IN UINT32  PixelClockKhz
+  );

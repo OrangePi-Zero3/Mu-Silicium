@@ -110,6 +110,7 @@
 
 #define TCON_GCTL_EN               (1 << 31)
 #define TCON_GCTL_IOMAP_TCON1      (1 << 0)
+#define TCON_GCTL_PAD_SEL          (1 << 1)
 #define TCON_TV_CTL_EN             (1 << 31)
 #define TCON_TV_CTL_INTERLACE_EN   (1 << 20)
 #define TCON_TV_CTL_START_DELAY_SHIFT 4

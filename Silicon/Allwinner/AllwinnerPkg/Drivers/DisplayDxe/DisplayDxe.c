@@ -8,6 +8,7 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/CacheMaintenanceLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/ClockLib.h>
 #include <Protocol/DevicePath.h>
 #include <Configuration/BootDevices.h>
 #include <Library/UefiBootManagerLib.h>
@@ -18,8 +19,8 @@
 #include "Clock.h"
 #include "Phy.h"
 #include "Gop.h"
+#include "Edid.h"
 
-//
 // Global Variables
 //
 GOP_PRIVATE  *mPrivate = NULL;
@@ -264,9 +265,7 @@ DisplayDxeEntry (
 
   mPrivate = AllocateZeroPool (sizeof (GOP_PRIVATE));
   if (mPrivate == NULL)
-  {
     return EFI_OUT_OF_RESOURCES;
-  }
 
   mPrivate->ActiveMode = (DISPLAY_MODE){
     .HActive       = 1920,
@@ -281,6 +280,11 @@ DisplayDxeEntry (
     .HSyncPositive = TRUE,
     .VSyncPositive = TRUE
   };
+
+  H618ClocksInit (&mPrivate->ActiveMode);
+  MmioOr32 (H618_TCON_TV0_BASE + TCON_GCTL_REG_OFFSET, TCON_GCTL_PAD_SEL);
+  MmioOr8 (H618_HDMI_BASE + HDMI_PHY_CONF0_REG, HDMI_PHY_CONF0_ENHPDRXSENSE_MASK);
+  H618EdidReadPreferredMode (&mPrivate->ActiveMode);
 
   Mode = &mPrivate->ActiveMode;
 

@@ -8,6 +8,7 @@
 
 [Sources]
   Clock.c
+  Edid.c
   Gop.c
   Phy.c
   DisplayDxe.c
