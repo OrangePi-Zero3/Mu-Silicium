@@ -48,6 +48,7 @@ APRIORI DXE {
   INF NetworkPkg/Ip4Dxe/Ip4Dxe.inf
   INF NetworkPkg/Udp4Dxe/Udp4Dxe.inf
   INF NetworkPkg/Mtftp4Dxe/Mtftp4Dxe.inf
+  INF SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
   INF NetworkPkg/TcpDxe/TcpDxe.inf
   INF NetworkPkg/UefiPxeBcDxe/UefiPxeBcDxe.inf
 

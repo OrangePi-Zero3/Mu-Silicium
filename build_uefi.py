@@ -481,7 +481,16 @@ def main ():
     cleanup_old_build (ctx.device, ctx.device_model, ctx.cleanup)
 
     # Remove Mu_Basecore Patches
-    for patch_name in ["AsmMacroLib.patch", "Auth-Service.patch", "Boot-Manager.patch", "Timer.patch", "Usb-Bus.patch", "Usb-Keyboard.patch"]:
+    mu_patch_names = [
+        "AsmMacroLib.patch",
+        "Auth-Service.patch",
+        "Boot-Manager.patch",
+        "Online-Firmware-Updater.patch",
+        "Timer.patch",
+        "Usb-Bus.patch",
+        "Usb-Keyboard.patch",
+    ]
+    for patch_name in mu_patch_names:
         handle_git_patch (MU_BASECORE_PATH, patch_name, True)
 
     # Update Local Repo
@@ -502,7 +511,7 @@ def main ():
         sys.exit (1)
 
     # Apply Mu_Basecore Patches
-    for patch_name in ["AsmMacroLib.patch", "Auth-Service.patch", "Boot-Manager.patch", "Timer.patch", "Usb-Bus.patch", "Usb-Keyboard.patch"]:
+    for patch_name in mu_patch_names:
         if not handle_git_patch (MU_BASECORE_PATH, patch_name, False):
             sys.exit (1)
 

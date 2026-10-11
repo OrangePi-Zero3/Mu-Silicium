@@ -3,7 +3,7 @@
 #
 [uefi_fd]
 base = 0x4A000000
-size = 0xA3000
+size = 0x000F9000
 
 [payload]
 requires_boot_shim = false

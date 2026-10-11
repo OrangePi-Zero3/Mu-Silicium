@@ -100,6 +100,14 @@ TlsCtxNew (
   //
   SSL_CTX_set_options (TlsCtx, SSL_OP_NO_SSLv3);
 
+  // The UEFI TLS protocol implementation in this tree handles TLS records
+  // through TLS 1.2. OpenSSL's client method otherwise advertises TLS 1.3 as
+  // its maximum, which this protocol stack cannot complete reliably.
+  if (!SSL_CTX_set_max_proto_version (TlsCtx, TLS1_2_VERSION)) {
+    SSL_CTX_free (TlsCtx);
+    return NULL;
+  }
+
   //
   // Treat as minimum accepted versions by setting the minimal bound.
   // Client can use higher TLS version if server supports it
@@ -186,9 +194,11 @@ TlsNew (
   }
 
   //
-  // This retains compatibility with previous version of OpenSSL.
+  // Level 3 requires 3072-bit RSA keys and rejects some widely used HTTPS
+  // server certificates. Level 2 retains modern security while supporting
+  // the 2048-bit RSA certificates commonly deployed by public endpoints.
   //
-  SSL_set_security_level (TlsConn->Ssl, 3);
+  SSL_set_security_level (TlsConn->Ssl, 2);
 
   //
   // Initialize the created SSL Object
