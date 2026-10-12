@@ -77,5 +77,17 @@ GopBlt (
     return EFI_SUCCESS;
   }
 
+  if (BltOperation == EfiBltVideoToBltBuffer) {
+    UINTN DstStride = (Delta == 0) ? Width * 4 : Delta;
+    for (Row = 0; Row < Height; Row++) {
+      CopyMem (
+        (UINT8 *)BltBuffer + (DestinationY + Row) * DstStride + DestinationX * 4,
+        Fb + (SourceY + Row) * Stride + SourceX * 4,
+        Width * 4
+        );
+    }
+    return EFI_SUCCESS;
+  }
+
   return EFI_UNSUPPORTED;
 }

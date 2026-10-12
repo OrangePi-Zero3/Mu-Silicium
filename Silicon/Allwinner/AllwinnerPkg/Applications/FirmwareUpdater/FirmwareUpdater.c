@@ -58,6 +58,12 @@ ShowStatus (
   );
 
 STATIC
+VOID
+DrawReleaseNotesOverlay (
+  IN CHAR8  *Notes
+  );
+
+STATIC
 BOOLEAN
 IsHttpsUrl (
   IN CONST CHAR16  *Url
@@ -842,31 +848,7 @@ ShowReleaseNotes (
   IN CHAR8  *Notes
   )
 {
-  CHAR16  Line[48];
-  UINTN   Source;
-  UINTN   Used;
-
-  Source = 0;
-  while (Notes[Source] != '\0') {
-    Used = 0;
-    while ((Notes[Source] != '\0') && (Notes[Source] != '\n') &&
-           (Used < ARRAY_SIZE (Line) - 1))
-    {
-      if (Notes[Source] == '\r') {
-        Source++;
-        continue;
-      }
-      Line[Used++] = (UINT8)Notes[Source++];
-    }
-    if (Notes[Source] == '\n') {
-      Source++;
-    }
-    Line[Used] = L'\0';
-    if (Used != 0) {
-      ShowStatus (Line, StatusIconNone);
-      gBS->Stall (400000);
-    }
-  }
+  DrawReleaseNotesOverlay (Notes);
 }
 
 STATIC
@@ -1011,15 +993,9 @@ FetchOnlineImage (
     FreePool (JsonText);
     goto Done;
   }
-  if (!EFI_ERROR (ReadJsonString (JsonText, "body", JsonText + JsonSize, Notes, sizeof (Notes)))) {
-    ShowReleaseNotes (Notes);
-  }
-  for (Index = 5; Index > 0; Index--) {
-    CHAR16 CountdownText[48];
-    UnicodeSPrint (CountdownText, sizeof (CountdownText), L"Downloading update in %u seconds", (UINT32)Index);
-    ShowStatus (CountdownText, StatusIconWarning);
-    gBS->Stall (1000000);
-  }
+  Notes[0] = '\0';
+  ReadJsonString (JsonText, "body", JsonText + JsonSize, Notes, sizeof (Notes));
+  ShowReleaseNotes (Notes);
   FreePool (JsonText);
 
   // The metadata server closes its connection. Use a fresh HTTP/TLS child for
@@ -1119,6 +1095,222 @@ FillRectangle (
   Color.Blue = Blue;
   Color.Reserved = 0;
   mGop->Blt (mGop, &Color, EfiBltVideoFill, 0, 0, X, Y, Width, Height, 0);
+}
+
+STATIC
+VOID
+DrawReleaseNotesOverlay (
+  IN CHAR8  *Notes
+  )
+{
+  EFI_IMAGE_OUTPUT       Image;
+  EFI_IMAGE_OUTPUT      *ImagePointer;
+  EFI_FONT_DISPLAY_INFO  DisplayInfo;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL *Pixels;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL *SavedScreen;
+  EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *Mode;
+  EFI_STATUS             Status;
+  CHAR16                 Line[128];
+  CHAR16                 CountdownText[48];
+  UINTN                  ScreenWidth;
+  UINTN                  ScreenHeight;
+  UINTN                  PanelWidth;
+  UINTN                  PanelHeight;
+  UINTN                  PanelX;
+  UINTN                  PanelY;
+  UINTN                  ContentX;
+  UINTN                  ContentY;
+  UINTN                  ContentWidth;
+  UINTN                  MaxColumns;
+  UINTN                  MaxRows;
+  UINTN                  Source;
+  UINTN                  LineStart;
+  UINTN                  Used;
+  UINTN                  LastSpace;
+  UINTN                  Row;
+  UINTN                  Index;
+  UINTN                  Countdown;
+  UINTN                  PixelCount;
+
+  if ((mGop == NULL) || (mHiiFont == NULL) || (mGop->Mode == NULL) ||
+      (mGop->Mode->Info == NULL))
+  {
+    return;
+  }
+
+  Mode = mGop->Mode->Info;
+  ScreenWidth = Mode->HorizontalResolution;
+  ScreenHeight = Mode->VerticalResolution;
+  if ((ScreenWidth < 160) || (ScreenHeight < 180)) {
+    return;
+  }
+
+  PanelWidth = MIN (ScreenWidth - 32, 1040);
+  PanelHeight = MIN (ScreenHeight - 32, 720);
+  PanelX = (ScreenWidth - PanelWidth) / 2;
+  PanelY = (ScreenHeight - PanelHeight) / 2;
+  ContentX = 32;
+  ContentY = 86;
+  ContentWidth = PanelWidth - 64;
+  MaxColumns = MIN (ARRAY_SIZE (Line) - 1, ContentWidth / 9);
+  MaxRows = (PanelHeight > 150) ? (PanelHeight - 150) / 25 : 1;
+  if (MaxColumns == 0) {
+    return;
+  }
+
+  Image.Width = (UINT16)PanelWidth;
+  Image.Height = (UINT16)PanelHeight;
+  PixelCount = PanelWidth * PanelHeight;
+  Image.Image.Bitmap = AllocateZeroPool (PixelCount * sizeof (*Image.Image.Bitmap));
+  if (Image.Image.Bitmap == NULL) {
+    return;
+  }
+
+  // Save what is on screen under the panel so it can be restored afterwards.
+  SavedScreen = AllocatePool (PixelCount * sizeof (*SavedScreen));
+  if (SavedScreen != NULL) {
+    Status = mGop->Blt (mGop, SavedScreen, EfiBltVideoToBltBuffer,
+                        PanelX, PanelY, 0, 0, PanelWidth, PanelHeight, 0);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((EFI_D_WARN, "Could not save screen for release notes: %r\n", Status));
+      FreePool (SavedScreen);
+      SavedScreen = NULL;
+    }
+  }
+  else {
+    DEBUG ((EFI_D_WARN, "Could not allocate memory to save screen for release notes\n"));
+  }
+
+  Pixels = Image.Image.Bitmap;
+  for (Index = 0; Index < PixelCount; Index++) {
+    Pixels[Index].Red = 12;
+    Pixels[Index].Green = 18;
+    Pixels[Index].Blue = 29;
+    Pixels[Index].Reserved = 0;
+  }
+
+  ImagePointer = &Image;
+  ZeroMem (&DisplayInfo, sizeof (DisplayInfo));
+  DisplayInfo.ForegroundColor.Red = 0xF2;
+  DisplayInfo.ForegroundColor.Green = 0xF4;
+  DisplayInfo.ForegroundColor.Blue = 0xF8;
+  DisplayInfo.BackgroundColor.Red = 12;
+  DisplayInfo.BackgroundColor.Green = 18;
+  DisplayInfo.BackgroundColor.Blue = 29;
+  DisplayInfo.FontInfoMask = EFI_FONT_INFO_SYS_FONT | EFI_FONT_INFO_SYS_SIZE | EFI_FONT_INFO_SYS_STYLE;
+  DisplayInfo.FontInfo.FontName[0] = L'\0';
+
+  for (Countdown = 5; Countdown > 0; Countdown--) {
+    // Repaint the panel each second so the notes stay visible while the
+    // continuation countdown updates.
+    for (Index = 0; Index < PixelCount; Index++) {
+      Pixels[Index].Red = 12;
+      Pixels[Index].Green = 18;
+      Pixels[Index].Blue = 29;
+      Pixels[Index].Reserved = 0;
+    }
+
+    DisplayInfo.ForegroundColor.Red = 0xFF;
+    DisplayInfo.ForegroundColor.Green = 0xFF;
+    DisplayInfo.ForegroundColor.Blue = 0xFF;
+    Status = mHiiFont->StringToImage (mHiiFont, EFI_HII_OUT_FLAG_CLIP,
+                                     L"Latest firmware release", &DisplayInfo,
+                                     &ImagePointer, ContentX, 28, NULL, NULL, NULL);
+    if (EFI_ERROR (Status)) {
+      break;
+    }
+
+    DisplayInfo.ForegroundColor.Red = 0xE0;
+    DisplayInfo.ForegroundColor.Green = 0xE4;
+    DisplayInfo.ForegroundColor.Blue = 0xEC;
+    Source = 0;
+    Row = 0;
+    while ((Notes[Source] != '\0') && (Row < MaxRows)) {
+      while ((Notes[Source] == '\r') || (Notes[Source] == '\n') || (Notes[Source] == ' ')) {
+        if (Notes[Source] == '\n') {
+          Source++;
+          break;
+        }
+
+        Source++;
+      }
+
+      if (Notes[Source] == '\0') {
+        break;
+      }
+
+      LineStart = Source;
+      Used = 0;
+      LastSpace = MAX_UINTN;
+      while ((Notes[Source] != '\0') && (Notes[Source] != '\r') &&
+             (Notes[Source] != '\n') && (Used < MaxColumns))
+      {
+        if (Notes[Source] == ' ') {
+          LastSpace = Used;
+        }
+
+        Line[Used++] = (UINT8)Notes[Source++];
+      }
+
+      if ((Used == MaxColumns) && (Notes[Source] != '\0') &&
+          (Notes[Source] != '\r') && (Notes[Source] != '\n') &&
+          (LastSpace != MAX_UINTN) && (LastSpace != 0))
+      {
+        Source = LineStart + LastSpace + 1;
+        Used = LastSpace;
+      }
+
+      while ((Used != 0) && (Line[Used - 1] == L' ')) {
+        Used--;
+      }
+
+      Line[Used] = L'\0';
+      if (Notes[Source] == '\r') {
+        Source++;
+      }
+      if (Notes[Source] == '\n') {
+        Source++;
+      }
+
+      if (Used != 0) {
+        Status = mHiiFont->StringToImage (mHiiFont, EFI_HII_OUT_FLAG_CLIP,
+                                         Line, &DisplayInfo, &ImagePointer,
+                                         ContentX, ContentY + (Row * 25),
+                                         NULL, NULL, NULL);
+        if (EFI_ERROR (Status)) {
+          break;
+        }
+        Row++;
+      }
+    }
+
+    DisplayInfo.ForegroundColor.Red = 0x9C;
+    DisplayInfo.ForegroundColor.Green = 0xB8;
+    DisplayInfo.ForegroundColor.Blue = 0xE8;
+    UnicodeSPrint (CountdownText, sizeof (CountdownText), L"Continuing in %u...", (UINT32)Countdown);
+    Status = mHiiFont->StringToImage (mHiiFont, EFI_HII_OUT_FLAG_CLIP,
+                                     CountdownText, &DisplayInfo, &ImagePointer,
+                                     ContentX, PanelHeight - 50, NULL, NULL, NULL);
+    if (!EFI_ERROR (Status)) {
+      mGop->Blt (mGop, Image.Image.Bitmap, EfiBltBufferToVideo, 0, 0,
+                 PanelX, PanelY, PanelWidth, PanelHeight, 0);
+      FillRectangle (PanelX, PanelY, PanelWidth, 2, 0x42, 0x8C, 0xF5);
+      FillRectangle (PanelX, PanelY + PanelHeight - 2, PanelWidth, 2, 0x42, 0x8C, 0xF5);
+      FillRectangle (PanelX, PanelY, 2, PanelHeight, 0x42, 0x8C, 0xF5);
+      FillRectangle (PanelX + PanelWidth - 2, PanelY, 2, PanelHeight, 0x42, 0x8C, 0xF5);
+    }
+
+    gBS->Stall (1000000);
+  }
+
+  // Countdown finished: put the original screen contents back.
+  if (SavedScreen != NULL) {
+    mGop->Blt (mGop, SavedScreen, EfiBltBufferToVideo, 0, 0,
+               PanelX, PanelY, PanelWidth, PanelHeight, 0);
+    FreePool (SavedScreen);
+  }
+
+  FreePool (Image.Image.Bitmap);
 }
 
 STATIC
