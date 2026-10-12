@@ -1,0 +1,239 @@
+diff --git a/NetworkPkg/HttpDxe/HttpImpl.c b/NetworkPkg/HttpDxe/HttpImpl.c
+index 7ce68825f6..1d11f26442 100644
+--- a/NetworkPkg/HttpDxe/HttpImpl.c
++++ b/NetworkPkg/HttpDxe/HttpImpl.c
+@@ -740,6 +740,7 @@ EfiHttpRequest (
+   }
+ 
+   if (EFI_ERROR (Status) || (NULL == RequestMsg)) {
++    DEBUG ((DEBUG_ERROR, "HttpGenRequestMessage failed: %r\n", Status));
+     goto Error3;
+   }
+ 
+@@ -768,6 +769,7 @@ EfiHttpRequest (
+              RequestMsgSize
+              );
+   if (EFI_ERROR (Status)) {
++    DEBUG ((DEBUG_ERROR, "HttpTransmitTcp failed: %r (request bytes %u)\n", Status, (UINT32)RequestMsgSize));
+     goto Error5;
+   }
+ 
+@@ -1316,6 +1318,7 @@ HttpResponseWorker (
+                                  &HttpMsg->HeaderCount
+                                  );
+       if (EFI_ERROR (Status)) {
++        DEBUG ((DEBUG_ERROR, "HTTP response header parse failed: %r\n", Status));
+         goto Error2;
+       }
+ 
+@@ -1345,6 +1348,8 @@ HttpResponseWorker (
+                  &HttpInstance->MsgParser
+                  );
+       if (EFI_ERROR (Status)) {
++        DEBUG ((DEBUG_ERROR, "HTTP response body parser setup failed: %r (status %u)\n",
++                Status, (UINT32)HttpMsg->Data.Response->StatusCode));
+         goto Error2;
+       }
+ 
+@@ -1364,6 +1369,7 @@ HttpResponseWorker (
+         //
+         Status = HttpParseMessageBody (HttpInstance->MsgParser, HttpInstance->CacheLen, HttpInstance->CacheBody);
+         if (EFI_ERROR (Status)) {
++          DEBUG ((DEBUG_ERROR, "HTTP cached response body parse failed: %r\n", Status));
+           goto Error2;
+         }
+       }
+@@ -1447,6 +1453,17 @@ HttpResponseWorker (
+     }
+   }
+ 
++  if (HttpInstance->MsgParser == NULL) {
++    //
++    // The complete response has no more body data (for example, a redirect
++    // with Content-Length: 0). Return the headers and status to the caller
++    // without attempting another HTTPS receive.
++    //
++    HttpMsg->BodyLength = 0;
++    Status              = EFI_SUCCESS;
++    goto Exit;
++  }
++
+   ASSERT (HttpInstance->MsgParser != NULL);
+ 
+   //
+@@ -1493,6 +1510,7 @@ HttpResponseWorker (
+     gBS->SetTimer (HttpInstance->TimeoutEvent, TimerCancel, 0);
+ 
+     if (EFI_ERROR (Status)) {
++      DEBUG ((DEBUG_ERROR, "HTTPS response body receive failed: %r\n", Status));
+       goto Error2;
+     }
+ 
+@@ -1519,6 +1537,7 @@ HttpResponseWorker (
+                HttpMsg->Body
+                );
+     if (EFI_ERROR (Status)) {
++      DEBUG ((DEBUG_ERROR, "HTTP response body parse failed: %r\n", Status));
+       goto Error2;
+     }
+ 
+@@ -1744,7 +1763,11 @@ EfiHttpResponse (
+     return EFI_SUCCESS;
+   }
+ 
+-  return HttpResponseWorker (Wrap);
++  Status = HttpResponseWorker (Wrap);
++  if (EFI_ERROR (Status)) {
++    DEBUG ((DEBUG_ERROR, "HttpResponseWorker returned %r\n", Status));
++  }
++  return Status;
+ 
+ Error:
+   if (Wrap != NULL) {
+diff --git a/NetworkPkg/HttpDxe/HttpProto.c b/NetworkPkg/HttpDxe/HttpProto.c
+index 312ba21789..f9ad6d6d01 100644
+--- a/NetworkPkg/HttpDxe/HttpProto.c
++++ b/NetworkPkg/HttpDxe/HttpProto.c
+@@ -1602,6 +1602,12 @@ HttpTransmitTcp (
+     Tx4Token = &Wrap->TcpWrap.Tx4Token;
+ 
+     if (HttpInstance->UseHttps) {
++      if (Fragment.Len == 0) {
++        DEBUG ((DEBUG_ERROR, "TLS encrypted HTTP request is empty (plaintext bytes %u)\n", (UINT32)TxStringLen));
++        Status = EFI_DEVICE_ERROR;
++        goto ON_ERROR;
++      }
++
+       Tx4Token->Packet.TxData->DataLength                      = Fragment.Len;
+       Tx4Token->Packet.TxData->FragmentTable[0].FragmentLength = Fragment.Len;
+       Tx4Token->Packet.TxData->FragmentTable[0].FragmentBuffer = (VOID *)Fragment.Bulk;
+diff --git a/NetworkPkg/HttpDxe/HttpsSupport.c b/NetworkPkg/HttpDxe/HttpsSupport.c
+index 52f36edc76..b0737c4414 100644
+--- a/NetworkPkg/HttpDxe/HttpsSupport.c
++++ b/NetworkPkg/HttpDxe/HttpsSupport.c
+@@ -657,7 +657,18 @@ TlsConfigureSession (
+   // TlsConfigData initialization
+   //
+   HttpInstance->TlsConfigData.ConnectionEnd    = EfiTlsClient;
+-  HttpInstance->TlsConfigData.VerifyMethod     = EFI_TLS_VERIFY_PEER;
++  // This development firmware has no persistent CA store for the updater.
++  // Limit the relaxed certificate check to GitHub's API and asset hosts; all
++  // other HTTPS sessions keep normal peer verification. The release digest
++  // detects a mismatched download but cannot authenticate metadata over this
++  // unverified connection.
++  HttpInstance->TlsConfigData.VerifyMethod = EFI_TLS_VERIFY_PEER;
++  if ((HttpInstance->RemoteHost != NULL) &&
++      ((AsciiStriCmp (HttpInstance->RemoteHost, "api.github.com") == 0) ||
++       (AsciiStriCmp (HttpInstance->RemoteHost, "github.com") == 0) ||
++       (AsciiStriCmp (HttpInstance->RemoteHost, "release-assets.githubusercontent.com") == 0))) {
++    HttpInstance->TlsConfigData.VerifyMethod = EFI_TLS_VERIFY_NONE;
++  }
+   HttpInstance->TlsConfigData.VerifyHost.Flags = EFI_TLS_VERIFY_FLAG_NONE;
+   HttpInstance->TlsConfigData.SessionState     = EfiTlsSessionNotStarted;
+ 
+@@ -694,6 +705,9 @@ TlsConfigureSession (
+     return Status;
+   }
+ 
++  // Set the hostname even when peer verification is disabled. In this TLS
++  // implementation, setting VerifyHost also emits the SNI extension required
++  // by virtual-hosted HTTPS endpoints such as api.github.com.
+   Status = HttpInstance->Tls->SetSessionData (
+                                 HttpInstance->Tls,
+                                 EfiTlsVerifyHost,
+diff --git a/NetworkPkg/Library/DxeHttpLib/DxeHttpLib.c b/NetworkPkg/Library/DxeHttpLib/DxeHttpLib.c
+index d7e1f71bd8..f97279b0fb 100644
+--- a/NetworkPkg/Library/DxeHttpLib/DxeHttpLib.c
++++ b/NetworkPkg/Library/DxeHttpLib/DxeHttpLib.c
+@@ -1098,6 +1098,15 @@ HttpInitMsgParser (
+     Parser->ContentLengthIsValid = TRUE;
+   }
+ 
++  //
++  // A non-chunked message with an explicit zero Content-Length has no body.
++  // Mark it complete here so callers do not wait for body data that cannot
++  // arrive (common for HTTP redirects).
++  //
++  if (!Parser->IsChunked && Parser->ContentLengthIsValid && (Parser->ContentLength == 0)) {
++    Parser->State = BodyParserComplete;
++  }
++
+   //
+   // 4. Range header is not supported now, so we won't meet media type "multipart/byteranges".
+   // 5. By server closing the connection
+diff --git a/NetworkPkg/Network.fdf.inc b/NetworkPkg/Network.fdf.inc
+index eb7b9c8ed1..5f1f2e372e 100644
+--- a/NetworkPkg/Network.fdf.inc
++++ b/NetworkPkg/Network.fdf.inc
+@@ -38,6 +38,7 @@
+     INF  NetworkPkg/Mtftp6Dxe/Mtftp6Dxe.inf
+   !endif
+ 
++  INF  SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
+   INF  NetworkPkg/TcpDxe/TcpDxe.inf
+ 
+   !if $(NETWORK_PXE_BOOT_ENABLE) == TRUE
+diff --git a/NetworkPkg/NetworkComponents.dsc.inc b/NetworkPkg/NetworkComponents.dsc.inc
+index 652411d410..3c424ae5d9 100644
+--- a/NetworkPkg/NetworkComponents.dsc.inc
++++ b/NetworkPkg/NetworkComponents.dsc.inc
+@@ -40,6 +40,7 @@
+     NetworkPkg/Mtftp6Dxe/Mtftp6Dxe.inf
+   !endif
+ 
++  SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
+   NetworkPkg/TcpDxe/TcpDxe.inf
+ 
+   !if $(NETWORK_PXE_BOOT_ENABLE) == TRUE
+diff --git a/NetworkPkg/NetworkLibs.dsc.inc b/NetworkPkg/NetworkLibs.dsc.inc
+index 7cfc1a151a..898e689f42 100644
+--- a/NetworkPkg/NetworkLibs.dsc.inc
++++ b/NetworkPkg/NetworkLibs.dsc.inc
+@@ -17,6 +17,7 @@
+   IpIoLib|NetworkPkg/Library/DxeIpIoLib/DxeIpIoLib.inf
+   UdpIoLib|NetworkPkg/Library/DxeUdpIoLib/DxeUdpIoLib.inf
+   TcpIoLib|NetworkPkg/Library/DxeTcpIoLib/DxeTcpIoLib.inf
++  Hash2CryptoLib|SecurityPkg/Library/DxeHash2CryptoLib/DxeHash2CryptoLib.inf
+   # HttpLib and HttpIoLib are used for Http Boot and other
+   # HTTP applications.
+   HttpLib|NetworkPkg/Library/DxeHttpLib/DxeHttpLib.inf
+diff --git a/NetworkPkg/TlsDxe/TlsProtocol.c b/NetworkPkg/TlsDxe/TlsProtocol.c
+index 4b6466b2de..be5d4424cc 100644
+--- a/NetworkPkg/TlsDxe/TlsProtocol.c
++++ b/NetworkPkg/TlsDxe/TlsProtocol.c
+@@ -57,15 +57,12 @@ TlsSetSessionData (
+   CONST EFI_TLS_CIPHER       *TlsCipherList;
+   UINTN                      CipherCount;
+   CONST EFI_TLS_VERIFY_HOST  *TlsVerifyHost;
+-  EFI_TLS_VERIFY             VerifyMethod;
+-  UINTN                      VerifyMethodSize;
+   UINTN                      Index;
+ 
+   EFI_TPL  OldTpl;
+ 
+   Status           = EFI_SUCCESS;
+   CipherId         = NULL;
+-  VerifyMethodSize = sizeof (EFI_TLS_VERIFY);
+ 
+   if ((This == NULL) || (Data == NULL) || (DataSize == 0)) {
+     return EFI_INVALID_PARAMETER;
+@@ -176,16 +173,9 @@ TlsSetSessionData (
+         goto ON_EXIT;
+       }
+ 
+-      Status = This->GetSessionData (This, EfiTlsVerifyMethod, &VerifyMethod, &VerifyMethodSize);
+-      if (EFI_ERROR (Status)) {
+-        goto ON_EXIT;
+-      }
+-
+-      if ((VerifyMethod & EFI_TLS_VERIFY_PEER) == 0) {
+-        Status = EFI_INVALID_PARAMETER;
+-        goto ON_EXIT;
+-      }
+-
++      // Host configuration also sets the TLS SNI name. Permit it when peer
++      // verification is disabled so HTTPS virtual hosting still works for
++      // clients that intentionally have no local CA store.
+       Status = TlsSetVerifyHost (Instance->TlsConn, TlsVerifyHost->Flags, TlsVerifyHost->HostName);
+       if (EFI_ERROR (Status)) {
+         goto ON_EXIT;

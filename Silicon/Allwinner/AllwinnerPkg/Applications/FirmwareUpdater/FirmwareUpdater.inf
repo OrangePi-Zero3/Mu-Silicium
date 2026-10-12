@@ -11,6 +11,8 @@
 
 [Packages]
   MdePkg/MdePkg.dec
+  CryptoPkg/CryptoPkg.dec
+  NetworkPkg/NetworkPkg.dec
   Silicon/Allwinner/AllwinnerPkg/AllwinnerPkg.dec
 
 [LibraryClasses]
@@ -22,12 +24,22 @@
   BaseMemoryLib
   BaseLib
   DebugLib
+  BaseCryptLib
 
 [Protocols]
   gEfiSimpleFileSystemProtocolGuid
   gAwSpiNorFlashProtocolGuid
   gEfiGraphicsOutputProtocolGuid
   gEfiAcpiSdtProtocolGuid
+  gEfiHiiFontProtocolGuid
+  gEfiHttpServiceBindingProtocolGuid
+  gEfiHttpProtocolGuid
+  gEfiPxeBaseCodeProtocolGuid
+  gEfiIp4Config2ProtocolGuid
+  gEfiManagedNetworkServiceBindingProtocolGuid
+  gEfiArpServiceBindingProtocolGuid
+  gEfiIp4ServiceBindingProtocolGuid
+  gEfiTcp4ServiceBindingProtocolGuid
 
 [Guids]
   gEfiFileInfoGuid

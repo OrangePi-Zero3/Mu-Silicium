@@ -307,6 +307,19 @@
   RngLib|SiliciumPkg/Library/DxeRngLib/DxeRngLib.inf
 !endif
 
+!ifdef $(NETWORK_TLS_ENABLE)
+!if $(NETWORK_TLS_ENABLE) == TRUE
+!if $(ENABLE_SECUREBOOT) == 0
+  BaseCryptLib|OpensslPkg/Library/BaseCryptLib/BaseCryptLib.inf
+  IntrinsicLib|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf
+  OpensslLib|OpensslPkg/Library/OpensslLib/OpensslLib.inf
+  RngLib|MdePkg/Library/DxeRngLib/DxeRngLib.inf
+!endif
+  TlsLib|OpensslPkg/Library/TlsLib/TlsLib.inf
+  FileExplorerLib|MdeModulePkg/Library/FileExplorerLib/FileExplorerLib.inf
+!endif
+!endif
+
   #
   # ACPI Libraries
   #
