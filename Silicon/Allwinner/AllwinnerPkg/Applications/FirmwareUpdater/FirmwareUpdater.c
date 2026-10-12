@@ -837,39 +837,6 @@ EnsureDhcp (
 }
 
 STATIC
-VOID
-ShowReleaseNotes (
-  IN CHAR8  *Notes
-  )
-{
-  CHAR16  Line[48];
-  UINTN   Source;
-  UINTN   Used;
-
-  Source = 0;
-  while (Notes[Source] != '\0') {
-    Used = 0;
-    while ((Notes[Source] != '\0') && (Notes[Source] != '\n') &&
-           (Used < ARRAY_SIZE (Line) - 1))
-    {
-      if (Notes[Source] == '\r') {
-        Source++;
-        continue;
-      }
-      Line[Used++] = (UINT8)Notes[Source++];
-    }
-    if (Notes[Source] == '\n') {
-      Source++;
-    }
-    Line[Used] = L'\0';
-    if (Used != 0) {
-      ShowStatus (Line, StatusIconNone);
-      gBS->Stall (400000);
-    }
-  }
-}
-
-STATIC
 EFI_STATUS
 FetchOnlineImage (
   OUT UINT8   **Image,
@@ -891,7 +858,6 @@ FetchOnlineImage (
   CHAR8       *Name;
   CHAR8       AssetUrl[2048];
   CHAR8       Digest[80];
-  CHAR8       Notes[4096];
   CHAR16      AssetUrl16[2048];
   UINT8       Expected[32];
   UINT8       Actual[32];
@@ -1011,9 +977,7 @@ FetchOnlineImage (
     FreePool (JsonText);
     goto Done;
   }
-  if (!EFI_ERROR (ReadJsonString (JsonText, "body", JsonText + JsonSize, Notes, sizeof (Notes)))) {
-    ShowReleaseNotes (Notes);
-  }
+
   for (Index = 5; Index > 0; Index--) {
     CHAR16 CountdownText[48];
     UnicodeSPrint (CountdownText, sizeof (CountdownText), L"Downloading update in %u seconds", (UINT32)Index);
