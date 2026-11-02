@@ -6,9 +6,10 @@
 #include <Library/DebugLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/MemoryAllocationLib.h>
-#include <Library/DevicePathLib.h>
 
 #include <Protocol/SimpleTextInEx.h>
+#include <Protocol/NonDiscoverableDevice.h>
+#include <Protocol/Usb2HostController.h>
 
 #include "BootManager.h"
 
@@ -19,55 +20,55 @@ STATIC EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *mSimpleInExProtocol  = NULL;
 STATIC VOID                              *mNotifyHandle        = NULL;
 STATIC BOOLEAN                            mEnterBootManager    = FALSE;
 
+STATIC
+VOID
+ConnectUsbHostControllers (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  EFI_HANDLE  *Handles;
+  UINTN       HandleCount = 0;
+
+  Status = gBS->LocateHandleBuffer (
+                  ByProtocol,
+                  &gEdkiiNonDiscoverableDeviceProtocolGuid,
+                  NULL,
+                  &HandleCount,
+                  &Handles
+                  );
+  if (!EFI_ERROR (Status)) {
+    for (UINTN Index = 0; Index < HandleCount; Index++) {
+      Status = gBS->ConnectController (Handles[Index], NULL, NULL, TRUE);
+    }
+
+    FreePool (Handles);
+  }
+
+  Status = gBS->LocateHandleBuffer (
+                  ByProtocol,
+                  &gEfiUsb2HcProtocolGuid,
+                  NULL,
+                  &HandleCount,
+                  &Handles
+                  );
+  if (EFI_ERROR (Status)) {
+    return;
+  }
+
+  for (UINTN Index = 0; Index < HandleCount; Index++) {
+    Status = gBS->ConnectController (Handles[Index], NULL, NULL, TRUE);
+  }
+
+  FreePool (Handles);
+}
+
 EFI_STATUS
 EFIAPI
 KeyNotify (IN EFI_KEY_DATA *KeyData)
 {
   // Toggle Boot Manager Flag
   mEnterBootManager = TRUE;
-
-  return EFI_SUCCESS;
-}
-
-EFI_STATUS
-SetupKeypad (IN EFI_DEVICE_PATH_PROTOCOL *DevicePath)
-{
-  EFI_STATUS  Status;
-  EFI_HANDLE  StiHandle;
-  EFI_HANDLE *KeypadBuffer;
-  UINTN       KeypadCount;
-
-  // Locate Keypad Controller Protocols
-  Status = gBS->LocateHandleBuffer (ByProtocol, &gKeypadDeviceProtocolGuid, NULL, &KeypadCount, &KeypadBuffer);
-  if (!EFI_ERROR (Status)) {
-    // Start all Keypad Controllers
-    for (UINTN i = 0; i < KeypadCount; i++) {
-      gBS->ConnectController (KeypadBuffer[i], NULL, NULL, TRUE);
-    }
-
-    // Free Buffer
-    FreePool (KeypadBuffer);
-  }
-
-  // Locate STI Protocol Handle
-  Status = gBS->LocateDevicePath (&gEfiSimpleTextInputExProtocolGuid, &DevicePath, &StiHandle);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "%a: Failed to Locate STI Device Path! Status = %r\n", __FUNCTION__, Status));
-    return Status;
-  }
-
-  // Get STI Protocol from Handle
-  Status = gBS->HandleProtocol (StiHandle, &gEfiSimpleTextInputExProtocolGuid, (VOID *)&mSimpleInExProtocol);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "%a: Failed to get STI Protocol from Handle! Status = %r\n", __FUNCTION__, Status));
-    return Status;
-  }
-
-  // Reset STI Device
-  Status = mSimpleInExProtocol->Reset (mSimpleInExProtocol, TRUE);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "%a: Failed to Reset STI Device! Status = %r\n", __FUNCTION__, Status));
-  }
 
   return EFI_SUCCESS;
 }
@@ -82,12 +83,12 @@ RegisterKeyNotify ()
   KeyData.KeyState.KeyToggleState = 0;
   KeyData.KeyState.KeyShiftState  = 0;
   KeyData.Key.UnicodeChar         = CHAR_NULL;
-  KeyData.Key.ScanCode            = SCAN_UP;
+  KeyData.Key.ScanCode            = SCAN_F10;
 
-  // Register Volume Up Key Notify
+  // Register F10 Key Notify
   Status = mSimpleInExProtocol->RegisterKeyNotify (mSimpleInExProtocol, &KeyData, &KeyNotify, &mNotifyHandle);
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "%a: Failed to Register Volume Up Key Notify! Status = %r\n", __FUNCTION__, Status));
+    DEBUG ((EFI_D_ERROR, "%a: Failed to Register F10 Key Notify! Status = %r\n", __FUNCTION__, Status));
     return Status;
   }
 
@@ -99,9 +100,18 @@ RegisterKeyCallback (IN EFI_DEVICE_PATH_PROTOCOL *DevicePath)
 {
   EFI_STATUS Status;
 
-  // Setup Keypad
-  Status = SetupKeypad (DevicePath);
+  (VOID)DevicePath;
+
+  // Connect USB controllers before registering the console notification.
+  ConnectUsbHostControllers ();
+
+  Status = gBS->HandleProtocol (
+                  gST->ConsoleInHandle,
+                  &gEfiSimpleTextInputExProtocolGuid,
+                  (VOID **)&mSimpleInExProtocol
+                  );
   if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "%a: Failed to get console input protocol! Status = %r\n", __FUNCTION__, Status));
     return Status;
   }
 
@@ -124,10 +134,10 @@ UnregisterKeyCallback ()
     return;
   }
 
-  // Unregister Volume Up Key Notify
+  // Unregister F10 Key Notify
   Status = mSimpleInExProtocol->UnregisterKeyNotify (mSimpleInExProtocol, mNotifyHandle);
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "%a: Failed to Unregister Volume Up Key Notify! Status = %r\n", __FUNCTION__, Status));
+    DEBUG ((EFI_D_ERROR, "%a: Failed to Unregister F10 Key Notify! Status = %r\n", __FUNCTION__, Status));
   }
 }
 
